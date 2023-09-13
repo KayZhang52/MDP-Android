@@ -1,5 +1,7 @@
 # MDP Android App
 
+![image](https://github.com/KayZhang52/MDP-Android/assets/46264322/d56135e4-3a26-44a5-8836-4931eaffd1aa)
+
 ## App to RPi
 
 **Moving around**
