@@ -11,9 +11,10 @@ import android.view.View
 
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Map
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Robot
+import java.text.DecimalFormat
 
 @Suppress("unused")
-class MapDrawer : View{
+class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, attrs){
 
     /**
      * helper variables
@@ -41,9 +42,9 @@ class MapDrawer : View{
     private lateinit var obstaclePaintBorder: Paint
     private lateinit var obstacleTextPaint: Paint
     private lateinit var sidePanelPaint: Paint
-    constructor(context: Context, attrs: AttributeSet? = null ):super(context){
-//        setWidth() = 1
-    }
+
+    private lateinit var blackTextPaint: Paint
+
     init {
         Robot_X = Robot.START_POS_X
         Robot_Y = Robot.START_POS_Y
@@ -74,6 +75,7 @@ class MapDrawer : View{
         obstaclePaintBorder = Paint(Paint.ANTI_ALIAS_FLAG)
         obstacleTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         sidePanelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        blackTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         gridPaint.style = Paint.Style.FILL
         gridPaint.color = Color.parseColor("#87cefa")
@@ -132,6 +134,10 @@ class MapDrawer : View{
         sidePanelPaint.style = Paint.Style.FILL
         sidePanelPaint.color = Color.parseColor("#B5C1C7")
 
+        blackTextPaint.style = Paint.Style.STROKE
+        blackTextPaint.color = Color.parseColor("#000000")
+        blackTextPaint.textSize = 15f
+
 
         if (this.tag != null) {
             Log.d("Tag", if (this.tag != null) this.tag as String else "Default")
@@ -149,13 +155,13 @@ class MapDrawer : View{
         Log.d(TAG, "DRAWING GRID MAP")
 
         drawMap(canvas)
-//        drawSidePanel(canvas)
         if (!selectWayPoint && !selectStartPoint) {
             drawExploredMap(canvas)
-            drawStartPoint(canvas)
-            drawEndPoint(canvas)
+//            drawStartPoint(canvas)
+//            drawEndPoint(canvas)
             drawWayPoint(canvas)
             drawRobot(canvas)
+            drawStatusText(canvas)
         } else {
             drawStartPoint(canvas)
             drawEndPoint(canvas)
@@ -379,7 +385,13 @@ class MapDrawer : View{
             "15" -> canvas.drawText("15", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
         }
     }
-
+    private fun drawStatusText(canvas:Canvas){
+        var offset = (gridDimensions).toFloat()
+        canvas.drawText("X: $Robot_X Y: $Robot_Y", offset, offset, blackTextPaint)
+        canvas.drawText("Facing direction: $direction", offset, offset+20, blackTextPaint)
+        canvas.drawText("Robot status: $RobotStatus", offset, offset+40, blackTextPaint)
+        canvas.drawText("Time elapsed: $timeElapsed", offset, offset+60, blackTextPaint)
+    }
     companion object {
         // Some constants for compatibility reasons
         const val GRID_DIMEN_TABLET = 36 // large (N7/Acer Tablet)
@@ -387,7 +399,7 @@ class MapDrawer : View{
         
         private const val TAG = "Grid"
         var gridDimensions: Int = GRID_DIMEN_TABLET
-
+//        var gridDimensions = GRID_DIMEN_PHABLET
         /**
          * state variables
          */
@@ -397,11 +409,14 @@ class MapDrawer : View{
         var Start_Point_Y: Int = Map.START_POINT_Y
         var Way_Point_X: Int = Map.WAY_POINT_X
         var Way_Point_Y: Int = Map.WAY_POINT_Y
+        var RobotStatus: String = "Idle"
         const val End_Point_X: Int = Map.END_POINT_X
         const val End_Point_Y: Int = Map.END_POINT_Y
         var direction: String = Robot.START_DIRECTION
         var selectStartPoint = false
         var selectWayPoint = false
+        private val timeFormatter = DecimalFormat("00")
+        var timeElapsed:String = "${timeFormatter.format(0)} m ${timeFormatter.format(0)} s"
 
         private var exploredPath = Array(Map.COLUMN) { Array(Map.ROW) { "0" } }
         private var obstacles = ArrayList<ArrayList<Int>>();

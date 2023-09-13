@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+
+<LinearLayout
+    android:layout_width="540px"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    tools:ignore="MissingConstraints">
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+
+        android:gravity="center"
+        >
+
+        <TextView
+            android:id="@+id/label_robot"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:background="@color/colorSecondaryTheme"
+            android:gravity="center"
+            android:text="Robot"
+            android:padding="10px"
+            android:textAlignment="center"
+            android:textColor="@android:color/background_light" />
+
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:background="@color/colorYellow"
+                android:gravity="center"
+                android:text="@string/x_coords"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/label_origin_coordinateX"
+                android:layout_width="30dp"
+                android:layout_height="20dp"
+                android:background="@drawable/listview_border"
+                android:gravity="center"
+                android:text="@string/rp_placeholder" />
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="10dp"
+                android:background="@color/colorYellow"
+                android:gravity="center"
+                android:text="@string/y_coords"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/label_origin_coordinateY"
+                android:layout_width="30dp"
+                android:layout_height="20dp"
+                android:background="@drawable/listview_border"
+                android:gravity="center"
+                android:text="@string/rp_placeholder" />
+
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="70dp"
+                android:layout_height="20dp"
+                android:background="@color/colorYellow"
+                android:gravity="center"
+                android:text="direction"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/label_robot_direction"
+                android:layout_width="30dp"
+                android:layout_height="20dp"
+                android:background="@drawable/listview_border"
+                android:gravity="center"
+                android:text="N" />
+        </LinearLayout>
+
+
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/label_waypoint"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:background="@color/colorSecondaryTheme"
+            android:gravity="center"
+            android:text="Waypoint"
+            android:padding="10px"
+            android:textAlignment="center"
+            android:textColor="@android:color/background_light" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:layout_marginTop="5dp">
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:background="@color/colorYellow"
+                android:gravity="center"
+                android:text="@string/x_coords"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/label_waypoint_coordinateX"
+                android:layout_width="30dp"
+                android:layout_height="20dp"
+                android:background="@drawable/listview_border"
+                android:gravity="center"
+                android:text="@string/wp_x_placeholder" />
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="10dp"
+                android:background="@color/colorYellow"
+                android:gravity="center"
+                android:text="@string/y_coords"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/label_waypoint_coordinateY"
+                android:layout_width="30dp"
+                android:layout_height="20dp"
+                android:background="@drawable/listview_border"
+                android:gravity="center"
+                android:text="@string/wp_y_placeholder" />
+
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

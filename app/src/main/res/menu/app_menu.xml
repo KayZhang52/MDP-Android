@@ -12,7 +12,7 @@
         android:id="@+id/app_menu_chat"
         android:title="Message Log"
         android:icon="@drawable/ic_message"
-        app:showAsAction="always"/>
+        app:showAsAction="never"/>
 
     <item
         android:id="@+id/app_menu_bluetooth_config"

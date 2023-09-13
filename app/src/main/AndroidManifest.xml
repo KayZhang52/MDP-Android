@@ -14,7 +14,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme" >
-        <activity android:name="sg.edu.ntu.scse.mdp.g39.mdpkotlin.MainActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustPan"
+        <activity android:name="sg.edu.ntu.scse.mdp.g39.mdpkotlin.MainActivity" android:screenOrientation="landscape" android:windowSoftInputMode="adjustPan"
             tools:ignore="LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

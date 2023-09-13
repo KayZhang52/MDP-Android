@@ -12,7 +12,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.Rect
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -20,6 +19,7 @@ import android.os.Handler
 import android.os.Message
 import android.provider.Settings
 import android.text.method.ScrollingMovementMethod
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.*
 import android.view.View.DragShadowBuilder
@@ -29,10 +29,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.github.controlwear.virtual.joystick.android.JoystickView
-import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.test_layout.label_robot_direction
-import kotlinx.android.synthetic.main.test_layout.map_relative_container
-import kotlinx.android.synthetic.main.test_layout.obstacle
+import kotlinx.android.synthetic.main.layout_version2.*
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Device
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.MessageLog
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.ObstacleView
@@ -79,7 +76,7 @@ class MainActivity : AppCompatActivity() {
     // Controls for Messaging Sending
     private var textboxSendMessage: EditText? = null
     private var scrollView: ScrollView? = null
-    private var messageLogView: TextView? = null
+    private var messageLogView: TextView? =null
     private var currentTime = System.currentTimeMillis()
 
     private lateinit var sensorOrientation: OrientationEventListener
@@ -87,7 +84,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         inflater = LayoutInflater.from(this)
-        setContentView(R.layout.test_layout)
+        setContentView(R.layout.layout_version2)
 
         // UI Configurations
         configureToggle()
@@ -145,16 +142,26 @@ class MainActivity : AppCompatActivity() {
         button_start_phase.setOnClickListener(onStart)
         toggle_mode_fastest_path.setOnCheckedChangeListener(onChangeFastestPathMode)
         toggle_update_auto.setOnCheckedChangeListener(onChangeAutoMode)
-        canvas_gridmap.setOnTouchListener(onSetMap)
+        map_canvas.setOnTouchListener(onSetMap)
         button_reset_map.setOnClickListener(onResetMap)
         sensorOrientation = object : OrientationEventListener(this) {
             override fun onOrientationChanged(orientation: Int) {
                 handleRotation(orientation)
             }
         }
-        obstacle.setOnTouchListener(onDragged)
-        canvas_gridmap.setOnDragListener(onObstacleDraggedOnMap)
+        draggable_obstacle.setOnTouchListener(onDragged)
+        map_canvas.setOnDragListener(onDraggableObstacleEnteringMap)
         joystickView.setOnMoveListener(onMove)
+        scrollView = msg_scroll_view
+        messageLogView = message_log
+        textboxSendMessage = textbox_send_message
+        button_send_message.setOnClickListener(sendMessage)
+
+        try{
+            adjustMapDimensions()
+        }catch(e: Exception){
+            Log.e("mapDimension", "failed to update: ${e.toString()}")
+        }
     }
 
     private fun configureToggle() {
@@ -290,7 +297,6 @@ class MainActivity : AppCompatActivity() {
 
     // Stream for data
     private val streamHandler = BtStreamHandler(this)
-
     class BtStreamHandler(activity: MainActivity) : Handler() {
         private val ref = WeakReference(activity)
 
@@ -311,7 +317,7 @@ class MainActivity : AppCompatActivity() {
                     val textArr = data.split(";")
                     textArr.forEach {
                         if (it.isEmpty()) return@forEach
-                        activity.handleAction(it.trim()) // Handle Action
+                        activity.handleAction(it.trim()) // Handles messages that are valid commands from the robot
                     }
 
                     activity.messageLogView?.text = activity.messageLog.getLog()
@@ -392,11 +398,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun connectedState(device: BluetoothDevice) {
         connectedDevice = device
-        label_bluetooth_status.text = "Connected"
+        val deviceName:String = if (connectedDevice.name != null) connectedDevice.name else "Unknown Device"
+        label_bluetooth_status.text = "Connected to $deviceName"
         label_bluetooth_status.setTextColor(Color.parseColor("#388e3c"))
 
-        label_bluetooth_connected_device.text =
-            if (connectedDevice.name != null) connectedDevice.name else "Unknown Device"
     }
 
     private fun disconnectedState() {
@@ -479,18 +484,18 @@ class MainActivity : AppCompatActivity() {
         val dialog = inflater.inflate(R.layout.dialog_message, null)
         val dialogBuilder = AlertDialog.Builder(this).setView(dialog)
 
-        dialog.findViewById<Button>(R.id.button_send_message).setOnClickListener(sendMessage)
-        textboxSendMessage = dialog.findViewById(R.id.textbox_send_message)
-        scrollView = dialog.findViewById(R.id.msg_scroll_view)
-        messageLogView = dialog.findViewById(R.id.message_log)
-        messageLogView?.movementMethod = ScrollingMovementMethod()
-        messageLogView?.text = messageLog.getLog()
-        messageLogView?.setTextIsSelectable(true)
-        scrollView?.post {
-            Log.d(TAG, "Attempting to full scroll down"); scrollView?.fullScroll(
-            ScrollView.FOCUS_DOWN
-        )
-        }
+//        dialog.findViewById<Button>(R.id.button_send_message).setOnClickListener(sendMessage)
+//        textboxSendMessage = dialog.findViewById(R.id.textbox_send_message)
+//        scrollView = dialog.findViewById(R.id.msg_scroll_view)
+//        messageLogView = dialog.findViewById(R.id.message_log)
+//        messageLogView?.movementMethod = ScrollingMovementMethod()
+//        messageLogView?.text = messageLog.getLog()
+//        messageLogView?.setTextIsSelectable(true)
+//        scrollView?.post {
+//            Log.d(TAG, "Attempting to full scroll down"); scrollView?.fullScroll(
+//            ScrollView.FOCUS_DOWN
+//        )
+//        }
         dialogBuilder.show()
     }
 
@@ -646,13 +651,13 @@ class MainActivity : AppCompatActivity() {
     private val onJoystickLeft = View.OnClickListener {
         sendStringToBtConnection(commandWrap(Cmd.DIRECTION_LEFT))
         MapDrawer.moveLeft()
-        canvas_gridmap.invalidate()
+        map_canvas.invalidate()
         updateRobotPositionLabel()
     }
     private val onJoystickRight = View.OnClickListener {
         sendStringToBtConnection(commandWrap(Cmd.DIRECTION_RIGHT))
         MapDrawer.moveRight()
-        canvas_gridmap.invalidate()
+        map_canvas.invalidate()
         updateRobotPositionLabel()
     }
     private val onJoystickUp = View.OnClickListener {
@@ -663,7 +668,7 @@ class MainActivity : AppCompatActivity() {
         if (!(xAxis == MapDrawer.Robot_X && yAxis == MapDrawer.Robot_Y)) sendStringToBtConnection(
             commandWrap(Cmd.DIRECTION_UP)
         )
-        canvas_gridmap.invalidate()
+        map_canvas.invalidate()
         updateRobotPositionLabel()
     }
     private val onStart = View.OnClickListener {
@@ -689,6 +694,7 @@ class MainActivity : AppCompatActivity() {
                     val time =
                         "${timeFormatter.format(minutes)} m ${timeFormatter.format(seconds)} s"
                     label_time_elapsed.text = time
+                    MapDrawer.timeElapsed = time
                 }
 
                 override fun onFinish() {}
@@ -709,7 +715,7 @@ class MainActivity : AppCompatActivity() {
             disableElement(button_start_phase)
             disableElement(button_reset_map)
             MapDrawer.setSelectStartPoint()
-            canvas_gridmap.invalidate()
+            map_canvas.invalidate()
         } else if (MapDrawer.selectStartPoint) {
             button_set_origin.text = "Set Origin"
             enableElement(button_set_waypoint)
@@ -725,7 +731,7 @@ class MainActivity : AppCompatActivity() {
 
             MapDrawer.setSelectStartPoint()
             MapDrawer.updateStartPoint()
-            canvas_gridmap.invalidate()
+            map_canvas.invalidate()
         }
     }
     private val onSetWaypoint = View.OnClickListener {
@@ -741,7 +747,7 @@ class MainActivity : AppCompatActivity() {
             disableElement(button_start_phase)
             disableElement(button_reset_map)
             MapDrawer.setSelectWayPoint()
-            canvas_gridmap.invalidate()
+            map_canvas.invalidate()
         } else if (MapDrawer.selectWayPoint) {
             button_set_waypoint.text = "Set Waypoint"
             enableElement(button_set_origin)
@@ -756,7 +762,7 @@ class MainActivity : AppCompatActivity() {
             sendStringToBtConnection(msg)
 
             MapDrawer.setSelectWayPoint()
-            canvas_gridmap.invalidate()
+            map_canvas.invalidate()
         }
     }
     private val onToggleMotionControl =
@@ -775,28 +781,36 @@ class MainActivity : AppCompatActivity() {
                 enableElement(joystickView)
             }
         }
+
+    //
+    @SuppressLint("ClickableViewAccessibility")
     private val onSetMap = View.OnTouchListener { _, motionEvent ->
         if (motionEvent != null) {
-            Log.d(
-                "map", "x: " + motionEvent.x + ", y: " + motionEvent
-                    .y
-            )
-            if (motionEvent.action == MotionEvent.ACTION_DOWN && (MapDrawer.selectStartPoint || MapDrawer.selectWayPoint)) {
-                val xAxis = (motionEvent.x / MapDrawer.gridDimensions).toInt()
-                val yAxis = (motionEvent.y / MapDrawer.gridDimensions).toInt()
+            try{
+                Log.d(
+                    "map", "x: " + motionEvent.x + ", y: " + motionEvent
+                        .y
+                )
+                if (motionEvent.action == MotionEvent.ACTION_DOWN && (MapDrawer.selectStartPoint || MapDrawer.selectWayPoint)) {
+                    val xAxis = (motionEvent.x / MapDrawer.gridDimensions).toInt()
+                    val yAxis = (motionEvent.y / MapDrawer.gridDimensions).toInt()
 
-                if (MapDrawer.validMidpoint(xAxis, yAxis)) {
-                    MapDrawer.updateSelection(xAxis, yAxis)
-                    canvas_gridmap.invalidate()
+                    if (MapDrawer.validMidpoint(xAxis, yAxis)) {
+                        MapDrawer.updateSelection(xAxis, yAxis)
+                        map_canvas.invalidate()
+                    }
+                    updateRobotPositionLabel()
+                    updateWaypointLabel()
                 }
-                updateRobotPositionLabel()
-                updateWaypointLabel()
+            } catch(e: Exception){
+                Log.e("map", e.toString())
             }
+
         }
         false
     }
     private val onRefreshState = View.OnClickListener {
-        canvas_gridmap.invalidate()
+        map_canvas.invalidate()
         updateRobotPositionLabel()
     }
     private val onChangeFastestPathMode =
@@ -817,9 +831,20 @@ class MainActivity : AppCompatActivity() {
             setNegativeButton("YES") { dialogInterface, _ ->
                 MapDrawer.resetMap()
                 image_content.setImageResource(R.drawable.img_0)
-                canvas_gridmap.invalidate()
+                map_canvas.invalidate()
                 dialogInterface.dismiss()
                 sendStringToBtConnection(commandWrap(Cmd.CLEAR)) // Send Clear
+                try{
+                    val childCount = map_overlay_for_obstacles.getChildCount();
+                    for (i in 1..childCount) {
+                        val v = map_overlay_for_obstacles.getChildAt(i)
+                        if(v!=null)
+                            map_overlay_for_obstacles.removeView(v)
+                    }
+                } catch(e:Exception){
+                    Log.e("map reset",  e.toString())
+                }
+
             }
             setPositiveButton("NO") { dialogInterface, _ -> dialogInterface.dismiss() }
         }.create()
@@ -841,14 +866,6 @@ class MainActivity : AppCompatActivity() {
         View.OnClickListener { saveStringConfig(textboxString1, textboxString2) }
     private val sendMessage = View.OnClickListener {
         val data = textboxSendMessage?.text.toString()
-        Log.d(TAG, "Message Sent : $data")
-        messageLog.addMessage(sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Message.MESSAGE_SENDER, data)
-        messageLogView?.text = messageLog.getLog()
-        scrollView?.post {
-            Log.d(TAG, "Attempting to full scroll down"); scrollView?.fullScroll(
-            ScrollView.FOCUS_DOWN
-        )
-        }
         sendStringToBtConnection(data)
         textboxSendMessage?.setText("")
     }
@@ -907,8 +924,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendStringToBtConnection(data: String) {
-        if (connectionThread != null) connectionThread?.write(data)
-        else notConnected()
+        try{
+            if (connectionThread != null) connectionThread?.write(data)
+            else notConnected()
+            Log.d(TAG, "Message Sent : $data")
+            messageLog.addMessage(sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Message.MESSAGE_SENDER, data)
+            messageLogView?.text = messageLog.getLog()
+            scrollView?.post {
+                scrollView?.fullScroll(ScrollView.FOCUS_DOWN)
+            }
+        } catch(e:Exception){
+            Log.e("btSend", "Sending bt message failed: ${e.toString()}")
+        }
+
     }
 
     // Help functions for storing data in Shared Preferences
@@ -983,7 +1011,7 @@ class MainActivity : AppCompatActivity() {
             sendStringToBtConnection(commandWrap(Cmd.DIRECTION_UP))
         } else return
         updateRobotPositionLabel()
-        canvas_gridmap.invalidate()
+        map_canvas.invalidate()
         currentTime = System.currentTimeMillis()
     }
 
@@ -995,7 +1023,7 @@ class MainActivity : AppCompatActivity() {
         val isStatus = parse.setStatus()
         if (isStatus) {
             handleUpdateStatus(parse.robotStatus)
-            return
+//            return
         }
 
         if (!parse.validPayload) return
@@ -1035,7 +1063,7 @@ class MainActivity : AppCompatActivity() {
         try {
             MapDrawer.updateCoordinates(x_axis, y_axis, dir)
 
-            if (autoModeState) canvas_gridmap.invalidate()
+            if (autoModeState) map_canvas.invalidate()
         } catch (typeEx: ClassCastException) {
             Log.d(TAG, "Unable to cast data into int")
         }
@@ -1067,25 +1095,18 @@ class MainActivity : AppCompatActivity() {
 
 
     @SuppressLint("ClickableViewAccessibility")
-    private val onObstacleDraggedOnMap = View.OnDragListener { view, dragEvent ->
+    private val onDraggableObstacleEnteringMap = View.OnDragListener { view, dragEvent ->
         when (dragEvent.action) {
             DragEvent.ACTION_DRAG_STARTED -> {
                 try {
-                    val obstacle = dragEvent.localState as View
-                    val id = (obstacle.parent as View).id
-                    val r = (view.parent as ViewGroup).parent as LinearLayout
+                    val obstacleOverlay = dragEvent.localState as View
+                    val mapOverlay = (view.parent as ViewGroup).parent as LinearLayout
 
-                    val offsetViewBounds = Rect()
-                    //returns the visible bounds
-                    obstacle.getDrawingRect(offsetViewBounds)
-                    // calculates the relative coordinates to the parent
-                    r.offsetDescendantRectToMyCoords(obstacle, offsetViewBounds)
-
-                    val relativeTop = offsetViewBounds.top
-                    val relativeLeft = offsetViewBounds.left
-                    val xAxis = (relativeLeft / MapDrawer.gridDimensions).toInt()
-                    val yAxis = (relativeTop / MapDrawer.gridDimensions).toInt()
-                    val bool = MapDrawer.removeObstacle(xAxis + 1, yAxis + 1)
+                    val xAxis = (obstacleOverlay.left / MapDrawer.gridDimensions).toInt()+1
+                    val yAxis = (obstacleOverlay.top / MapDrawer.gridDimensions).toInt()+1
+                    val bool = MapDrawer.removeObstacle(xAxis, yAxis)
+                    if(!bool)
+                        Log.e("map", String.format("failed to remove obstacleOverlay, called removeObstacle(%d, %d)", xAxis, yAxis))
                     view.invalidate()
                 } catch (e: Exception) {
                     Log.e("map", e.toString())
@@ -1103,16 +1124,7 @@ class MainActivity : AppCompatActivity() {
                 (obstacle.parent as ViewGroup).removeView(obstacle)
             }
 
-
-            DragEvent.ACTION_DRAG_LOCATION -> {
-
-            }
-
-            DragEvent.ACTION_DRAG_ENDED -> {
-
-            }
-
-
+            // should only happens when user drag the obstacle into the map
             DragEvent.ACTION_DROP -> {
                 val xAxis = (dragEvent.x / MapDrawer.gridDimensions).toInt()
                 val yAxis = (dragEvent.y / MapDrawer.gridDimensions).toInt()
@@ -1146,7 +1158,8 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     try {
-                        map_relative_container.addView(obstacleView, params)
+                        map_overlay_for_obstacles.addView(obstacleView, params)
+                        Log.d("map", String.format("draggable obstacle inserted at (%d, %d)", xAxis, yAxis))
                     } catch (e: Exception) {
                         Log.e("map", e.toString())
                     }
@@ -1171,19 +1184,30 @@ class MainActivity : AppCompatActivity() {
                     Cmd.DIRECTION_UP
                 )
             )
-            canvas_gridmap.invalidate()
+            map_canvas.invalidate()
             updateRobotPositionLabel()
         } else if ((angle in 1..45) || (angle in 316..359)) {
             sendStringToBtConnection(commandWrap(Cmd.DIRECTION_RIGHT))
             MapDrawer.moveRight()
-            canvas_gridmap.invalidate()
+            map_canvas.invalidate()
             updateRobotPositionLabel()
         } else if (angle in 135..254) {
             sendStringToBtConnection(commandWrap(Cmd.DIRECTION_LEFT))
             MapDrawer.moveLeft()
-            canvas_gridmap.invalidate()
+            map_canvas.invalidate()
             updateRobotPositionLabel()
         }
+    }
+
+    private fun adjustMapDimensions(){
+        val metrics: DisplayMetrics = DisplayMetrics()
+        getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        val height = metrics.heightPixels
+//        Log.d("mapDimension", "heightPixels:${metrics.heightPixels}")
+//        Log.d("mapDimension", "widthPixels:${metrics.widthPixels}")
+        MapDrawer.gridDimensions = (500) / 20
+        Log.d("mapDimension", "gridDimension set to ${MapDrawer.gridDimensions}")
+        map_canvas.invalidate()
     }
 
     companion object {

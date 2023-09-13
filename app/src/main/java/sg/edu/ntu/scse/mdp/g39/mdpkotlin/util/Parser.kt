@@ -31,7 +31,7 @@ class Parser(payload: String) {
             this.payload = tmpPayload
 
             setRobot()
-            setMDF()
+//            setMDF()
         } catch (jsonEx: JSONException) {
             Log.d(TAG, "JSON EXCEPTION1")
             this.validPayload = false
@@ -57,7 +57,7 @@ class Parser(payload: String) {
                     else -> "RIGHT" // DEFAULT RIGHT
                 }
             } catch (jsonEx: JSONException) {
-                Log.d(TAG, "JSON EXCEPTION")
+                Log.d(TAG, "JSON EXCEPTION: $jsonEx")
                 this.validPayload = false
             } catch (indexEx: IndexOutOfBoundsException) {
                 Log.d(TAG, "INDEX OUT OF BOUNDS EXCEPTION")
@@ -69,7 +69,9 @@ class Parser(payload: String) {
         }
     }
 
-    fun setStatus(): Boolean { return try { this.robotStatus = this.payload?.getString("status") ?: "Unknown"; true } catch (e: Exception) { Log.d(
+    fun setStatus(): Boolean {
+        return try { this.robotStatus = this.payload?.getString("status") ?: "Unknown"; true }
+        catch (e: Exception) { Log.d(
         TAG, "EXCEPTION"); false } }
 
     fun processImage() {
