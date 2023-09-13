@@ -466,7 +466,7 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
         }
 
         @JvmStatic
-        fun updateCoordinates(x_axis: Int, y_axis: Int, dir: String) {
+        fun updateCoordinates(x_axis: Int, y_axis: Int, dir: Int) {
             if (!validMidpoint(x_axis, y_axis)) return
             Log.d(TAG, "X Axis : $x_axis Y Axis: $y_axis")
             val newYAxis = invertYAxis(y_axis)
@@ -476,10 +476,10 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
             Log.d(TAG, "$Robot_X, $Robot_Y")
 
             direction = when (dir) {
-                "UP" -> "Up"
-                "DOWN" -> "Down"
-                "LEFT" -> "Left"
-                "RIGHT" -> "Right"
+                0 -> "Up"
+                180 -> "Down"
+                270 -> "Left"
+                90 -> "Right"
                 else -> "Right"
             }
             updateExplored()
@@ -612,5 +612,8 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
             return true
         }
 
+        fun updateObstacle(id:String, x:Int, y:Int){
+            exploredPath[x][y] = id;
+        }
     }
 }

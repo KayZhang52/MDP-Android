@@ -10,74 +10,95 @@ import java.math.BigInteger
 
 class Parser(payload: String) {
 
-    private var payload: JSONObject? = null
+    private var payloadJSON: JSONObject? = null
+    private var payloadString:String = ""
     var robotX = 0
     var robotY = 0
-    var robotDir = ""
+    var robotDir = 0
     var robotStatus = ""
     var lastImageID = ""
-    private var currentPayload = ""
+    var lastImageX:Int? = null
+    var lastImageY:Int? = null
+
 
     val exploredMap = Array(Map.COLUMN) { Array(Map.ROW) { "" } }
 
     var validPayload = true
 
     init {
+        Log.d("parser", "init, payload: $payload")
+        this.payloadString = payload
         val tmpPayload: JSONObject?
-        this.currentPayload = payload
 
         try {
             tmpPayload = JSONObject(payload)
-            this.payload = tmpPayload
+            this.payloadJSON = tmpPayload
 
-            setRobot()
+//            setRobot()
 //            setMDF()
         } catch (jsonEx: JSONException) {
-            Log.d(TAG, "JSON EXCEPTION1")
+            Log.d(TAG, "jsonException at init: ${jsonEx.toString()}")
             this.validPayload = false
         }
     }
 
-    private fun setRobot() {
-        if (!this.validPayload) return
-
-        this.payload?.let {
+    fun setRobot():Boolean{
+        this.payloadJSON?.let {
             try {
                 val robot = it.getJSONArray("pos")
 
                 this.robotX = robot.getInt(0)
                 this.robotY = robot.getInt(1)
-                val angle = robot.getInt(2)
+                this.robotDir = robot.getInt(2)
 
-                this.robotDir = when (angle) {
-                    0 -> "UP"
-                    90 -> "RIGHT"
-                    180 -> "DOWN"
-                    270 -> "LEFT"
-                    else -> "RIGHT" // DEFAULT RIGHT
-                }
+                return true
             } catch (jsonEx: JSONException) {
-                Log.d(TAG, "JSON EXCEPTION: $jsonEx")
-                this.validPayload = false
+                Log.e(TAG, "jsonException at setRobot(): ${jsonEx.toString()}")
             } catch (indexEx: IndexOutOfBoundsException) {
-                Log.d(TAG, "INDEX OUT OF BOUNDS EXCEPTION")
-                this.validPayload = false
+                Log.e(TAG, "INDEX OUT OF BOUNDS EXCEPTION")
             } catch (castEx: ClassCastException) {
-                Log.d(TAG, "CLASS CAST EXCEPTION")
-                this.validPayload = false
+                Log.e(TAG, "CLASS CAST EXCEPTION")
             }
+        }
+        return false
+    }
+
+    /**
+     * Get status from the json payload,
+     * if status key does not exist returns false.
+     */
+    fun setStatus(): Boolean {
+        return try {
+            this.robotStatus = this.payloadJSON?.getString("status") ?: "Unknown"
+            true
+        } catch (e: Exception) {
+            Log.d(TAG, "payload does not contain 'status'")
+            false
         }
     }
 
-    fun setStatus(): Boolean {
-        return try { this.robotStatus = this.payload?.getString("status") ?: "Unknown"; true }
-        catch (e: Exception) { Log.d(
-        TAG, "EXCEPTION"); false } }
+    /**
+     *  Get the image ID from the 'img' key.
+     *  Update image id and image coordinates in state variables.
+     */
+    fun setImage():Boolean{
+        this.payloadJSON?.let{
+            try{
+                val arr = it.getJSONArray("img")
+                lastImageID = arr.getString(0)
+                lastImageX = arr.getInt(1)
+                lastImageY = arr.getInt(2)
+                Log.d("parserImage", "received image id: ${lastImageID}, at (${lastImageX},${lastImageY})")
+                return true
+            } catch(e:Exception){
+                Log.e("parserImage", "setImage(): ${e.toString()}")
+            }
+        }
+        return false
+    }
 
     fun processImage() {
-        if (!this.validPayload) return
-
-        this.payload?.let {
+        this.payloadJSON?.let {
             try {
                 val images = it.getJSONArray("imgs")
                 var imgID = "0"
@@ -97,8 +118,8 @@ class Parser(payload: String) {
                 if (hexImage.isNotEmpty()) hexImage = hexImage.trimEnd(',') // Previously substring remove length-1
                 this.lastImageID = imgID
             } catch (jsonEx: JSONException) {
-                Log.d(TAG, "JSON EXCEPTION")
-                this.validPayload = false
+                Log.d(TAG, "jsonException at processImage(): ${jsonEx.toString()}")
+                this.validPayload = true
             } catch (indexEx: IndexOutOfBoundsException) {
                 Log.d(TAG, "INDEX OUT OF BOUNDS EXCEPTION")
                 this.validPayload = false
@@ -112,9 +133,9 @@ class Parser(payload: String) {
     private fun setMDF() {
         if (!this.validPayload) { Log.d("MDF", "Invalid Payload"); return }
 
-        mdfPayload = this.currentPayload
+        mdfPayload = this.payloadString
 
-        this.payload?.let {
+        this.payloadJSON?.let {
             try {
                 var exploredMDF = it.getString("expMDF")
                 var obstacleMDF = it.getString("objMDF")
@@ -161,7 +182,7 @@ class Parser(payload: String) {
                 if (DEBUG) printMapDbg()
 
             } catch (jsonEx: JSONException) {
-                Log.d(TAG, "JSON EXCEPTION")
+                Log.d(TAG, "jsonException at setMDF(): ${jsonEx.toString()}")
                 this.validPayload = false
             } catch (indexEx: IndexOutOfBoundsException) {
                 Log.d(TAG, "INDEX OUT OF BOUNDS EXCEPTION")

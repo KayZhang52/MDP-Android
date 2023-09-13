@@ -314,6 +314,7 @@ class MainActivity : AppCompatActivity() {
                         sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Message.MESSAGE_RECEIVER,
                         data.trim()
                     )
+//                    activity.handleAction(data)
                     val textArr = data.split(";")
                     textArr.forEach {
                         if (it.isEmpty()) return@forEach
@@ -1018,21 +1019,22 @@ class MainActivity : AppCompatActivity() {
     // Helper functions to handle received message
     private fun handleAction(payload: String) {
         Log.d("Action", "Parsing $payload")
-        val parse = Parser(payload)
+        val parser = Parser(payload)
 
-        val isStatus = parse.setStatus()
-        if (isStatus) {
-            handleUpdateStatus(parse.robotStatus)
-//            return
+
+        if (parser.setStatus()) {
+            handleUpdateStatus(parser.robotStatus)
+        }
+        if(parser.setRobot())
+            handleUpdatePosition(parser.robotX, parser.robotY, parser.robotDir)
+
+        if(parser.setImage()){
+            MapDrawer.updateObstacle(parser.lastImageID, parser.lastImageX!!, parser.lastImageY!!)
+            map_canvas.invalidate()
         }
 
-        if (!parse.validPayload) return
-
-        handleUpdatePosition(parse.robotX, parse.robotY, parse.robotDir)
-
-        parse.processImage()
-        handleUpdateImage(parse.lastImageID)
-        MapDrawer.setGrid(parse.exploredMap)
+//        handleUpdateImage(parser.lastImageID)
+//        MapDrawer.setGrid(parser.exploredMap)
     }
 
     private fun handleUpdateImage(imgID: String) {
@@ -1059,7 +1061,11 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun handleUpdatePosition(x_axis: Int, y_axis: Int, dir: String) {
+    /**
+     * updates the robot's position and redraw the map.
+     *
+     */
+    private fun handleUpdatePosition(x_axis: Int, y_axis: Int, dir: Int) {
         try {
             MapDrawer.updateCoordinates(x_axis, y_axis, dir)
 
@@ -1067,9 +1073,12 @@ class MainActivity : AppCompatActivity() {
         } catch (typeEx: ClassCastException) {
             Log.d(TAG, "Unable to cast data into int")
         }
-        updateRobotPositionLabel()
+//        updateRobotPositionLabel()
     }
 
+    /**
+     * Updates the text view with new status string.
+     */
     private fun handleUpdateStatus(data: String) {
         Log.d(TAG, "Status Update : $data")
         label_status_details.text = data
