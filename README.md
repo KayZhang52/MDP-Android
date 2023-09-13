@@ -11,11 +11,15 @@
 ```
 
 **Clear all obstacles and navigated path**
-```;{"from":"Android","com":"clr"}```
+```
+;{"from":"Android","com":"clr"}
+```
 
 **Command robot to move to coordinate and face a direction**
 (last element is direction robot is facing, 0, 90, 180, 270 for top, left, bottom right)
-```;{"from":"Android","com":"startingPoint","startingPoint":[1,1,0]}```
+```
+;{"from":"Android","com":"startingPoint","startingPoint":[1,1,0]}
+```
 
 ## Commands RPi to App
 ```
