@@ -1,6 +1,6 @@
 # MDP Android App
 
-## Commands android app send to RPi
+## App to RPi
 
 **Moving around**
 ```
@@ -17,7 +17,7 @@
 (last element is direction robot is facing, 0, 90, 180, 270 for top, left, bottom right)
 ```;{"from":"Android","com":"startingPoint","startingPoint":[1,1,0]}```
 
-## Commands RPi send to Android
+## Commands RPi to App
 ```
 {"pos":[5,5,0]} // move robot to position and face direction
 {"img":[5,3,3]} // mark (3,3) as obstacle with image id 5
