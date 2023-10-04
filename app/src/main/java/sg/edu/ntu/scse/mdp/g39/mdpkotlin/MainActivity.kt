@@ -18,7 +18,6 @@ import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Message
 import android.provider.Settings
-import android.text.method.ScrollingMovementMethod
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.*
@@ -100,6 +99,7 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
                 1
             )
+
 
         // Bluetooth Adapter
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
@@ -632,16 +632,26 @@ class MainActivity : AppCompatActivity() {
         dialogBuilder.show()
     }
 
-    private fun showDialogObstacle(obs:ObstacleView){
+    private fun showDialogObstacle(obs:ObstacleView, xAxis:Int, yAxis:Int){
         Log.d("obstacle", "initialize")
         val dialogView = inflater.inflate(R.layout.dialog_obstacle, null)
         val dialogBuilder = AlertDialog.Builder(this).setView(dialogView)
-        val textInputImg = dialogView.findViewById<EditText>(R.id.textbox_image)
-        val textInputImgFace = dialogView.findViewById<EditText>(R.id.textbox_image_direction)
+
+        // setting obstacle dialog drop down options
+        val dropdown = dialogView.findViewById<Spinner>(R.id.spinner_image_direction)
+        val items = arrayOf("N", "S", "E", "W")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items)
+        dropdown.adapter = adapter
+        val dropdown2 = dialogView.findViewById<Spinner>(R.id.spinner_image)
+        val items2 = arrayOf("1", "2", "3", "4", "5", "6", "7", "8")
+        val adapter2 = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items2)
+        dropdown2.adapter = adapter2
+
         val dialog:AlertDialog = dialogBuilder.create()
         dialogView.findViewById<Button>(R.id.button_update_obstacle_config).setOnClickListener(View.OnClickListener{
-            obs.setImage(textInputImg.text.toString().first())
-            obs.setImageFace(textInputImgFace.text.toString().first())
+            obs.setImage(dropdown2.selectedItem.toString().first())
+            obs.setImageFace(dropdown.selectedItem.toString().first())
+            MapDrawer.updateObstacleDirection(dropdown.selectedItem.toString(), xAxis, yAxis)
             dialog.dismiss()
         })
         dialog.show()
@@ -676,14 +686,18 @@ class MainActivity : AppCompatActivity() {
         if (startModeState) {
             startModeState = false
             button_start_phase.text = "Start"
-            sendStringToBtConnection(commandWrap(Cmd.STOP))
+//            sendStringToBtConnection(commandWrap(Cmd.STOP))
             timer.cancel()
             endModeUI()
         } else {
             startModeState = true
             button_start_phase.text = "Stop"
             if (fastestPathModeState) sendStringToBtConnection(commandWrap(Cmd.FASTEST_PATH_START))
-            else sendStringToBtConnection(commandWrap(Cmd.EXPLORATION_START))
+            else {
+//                sendStringToBtConnection(commandWrap(Cmd.EXPLORATION_START))
+                val msg = MapDrawer.getObstaclePositions()
+                sendStringToBtConnection(msg)
+            }
 
             timer = object : CountDownTimer(30000000, 1000) {
                 override fun onTick(l: Long) {
@@ -934,6 +948,7 @@ class MainActivity : AppCompatActivity() {
             scrollView?.post {
                 scrollView?.fullScroll(ScrollView.FOCUS_DOWN)
             }
+            Log.d("log", "sent: " + data)
         } catch(e:Exception){
             Log.e("btSend", "Sending bt message failed: ${e.toString()}")
         }
@@ -1029,7 +1044,7 @@ class MainActivity : AppCompatActivity() {
             handleUpdatePosition(parser.robotX, parser.robotY, parser.robotDir)
 
         if(parser.setImage()){
-            MapDrawer.updateObstacle(parser.lastImageID, parser.lastImageX!!, parser.lastImageY!!)
+            MapDrawer.updateObstacleDirection(parser.lastImageID, parser.lastImageX!!, parser.lastImageY!!)
             map_canvas.invalidate()
         }
 
@@ -1109,24 +1124,16 @@ class MainActivity : AppCompatActivity() {
             DragEvent.ACTION_DRAG_STARTED -> {
                 try {
                     val obstacleOverlay = dragEvent.localState as View
-                    val mapOverlay = (view.parent as ViewGroup).parent as LinearLayout
-
-                    val xAxis = (obstacleOverlay.left / MapDrawer.gridDimensions).toInt()+1
-                    val yAxis = (obstacleOverlay.top / MapDrawer.gridDimensions).toInt()+1
+                    val xAxis = (obstacleOverlay.left / MapDrawer.gridDimensions).toInt()
+                    val yAxis = (obstacleOverlay.top / MapDrawer.gridDimensions).toInt()
                     val bool = MapDrawer.removeObstacle(xAxis, yAxis)
                     if(!bool)
-                        Log.e("map", String.format("failed to remove obstacleOverlay, called removeObstacle(%d, %d)", xAxis, yAxis))
+                        Log.e("map:action_drag_started", String.format("failed to remove obstacleOverlay, called removeObstacle(%d, %d)", xAxis, yAxis))
                     view.invalidate()
                 } catch (e: Exception) {
-                    Log.e("map", e.toString())
+                    Log.e("mapdragstart", "${e.toString()}")
                 }
             }
-
-
-            DragEvent.ACTION_DRAG_ENTERED -> {
-//                        Log.d("map", "Action is DragEvent.ACTION_DRAG_ENTERED");
-            }
-
 
             DragEvent.ACTION_DRAG_EXITED -> {
                 val obstacle = dragEvent.localState as View
@@ -1135,46 +1142,48 @@ class MainActivity : AppCompatActivity() {
 
             // should only happens when user drag the obstacle into the map
             DragEvent.ACTION_DROP -> {
-                val xAxis = (dragEvent.x / MapDrawer.gridDimensions).toInt()
-                val yAxis = (dragEvent.y / MapDrawer.gridDimensions).toInt()
+                try {
+                    val x = (dragEvent.x / MapDrawer.gridDimensions).toInt()
+                    val y = (dragEvent.y / MapDrawer.gridDimensions).toInt()
+                    if (MapDrawer.isNotOccupied(x, y)) {
+                        MapDrawer.setObstacle(x, y)
+                        val obstacleView = ObstacleView(view.context)
+                        obstacleView.width = MapDrawer.gridDimensions
+                        obstacleView.height = MapDrawer.gridDimensions
 
-                if (MapDrawer.validObstacle(xAxis, yAxis)) {
-                    MapDrawer.setObstacle(xAxis, yAxis)
-                    val obstacleView = ObstacleView(view.context)
-                    obstacleView.width = MapDrawer.gridDimensions * 3
-                    obstacleView.height = MapDrawer.gridDimensions * 3
-                    obstacleView.setImage('5')
-                    obstacleView.setBackgroundColor(resources.getColor(android.R.color.white))
-                    val params: RelativeLayout.LayoutParams = RelativeLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                    params.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE)
-                    params.leftMargin = (xAxis - 1) * MapDrawer.gridDimensions
-                    params.topMargin = (yAxis - 1) * MapDrawer.gridDimensions
-                    showDialogObstacle(obstacleView)
-                    obstacleView.setOnTouchListener { view: View, motionEvent: MotionEvent ->
-                        Log.d("obstacle", motionEvent.action.toString())
-                        if (motionEvent.action == MotionEvent.ACTION_DOWN) {
-                            val data = ClipData.newPlainText("", "")
-                            val shadowBuilder = DragShadowBuilder(
-                                view
-                            )
-                            view.startDrag(data, shadowBuilder, view, 0)
-                            view.visibility = View.INVISIBLE
-                            true
-                        } else {
-                            false
+                        obstacleView.setImage('2')
+                        obstacleView.setBackgroundColor(resources.getColor(android.R.color.black))
+                        val params: RelativeLayout.LayoutParams = RelativeLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        params.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE)
+                        params.leftMargin = x * MapDrawer.gridDimensions
+                        params.topMargin = y * MapDrawer.gridDimensions
+                        showDialogObstacle(obstacleView, x, y)
+                        obstacleView.setOnTouchListener { view: View, motionEvent: MotionEvent ->
+                            if (motionEvent.action == MotionEvent.ACTION_DOWN) {
+                                val data = ClipData.newPlainText("", "")
+                                val shadowBuilder = DragShadowBuilder(
+                                    view
+                                )
+                                view.startDrag(data, shadowBuilder, view, 0)
+                                view.visibility = View.INVISIBLE
+                                true
+                            } else {
+                                false
+                            }
                         }
-                    }
-                    try {
-                        map_overlay_for_obstacles.addView(obstacleView, params)
-                        Log.d("map", String.format("draggable obstacle inserted at (%d, %d)", xAxis, yAxis))
-                    } catch (e: Exception) {
-                        Log.e("map", e.toString())
-                    }
+//                        sendStringToBtConnection(";{$FROMANDROID\"com\":\"obs\",\"x\":$xAxis,\"y\":$yAxis,\"face\":${obstacleView.getImageFace()}}"
+                        try {
+                            map_overlay_for_obstacles.addView(obstacleView, params)
+                        } catch (e: Exception) {
+                            Log.e("mapDragging", e.toString())
+                        }
 
+                    }
+                } catch(e:Exception){
+                    Log.e("mapOnDrop", e.toString())
                 }
-//                Log.d("map", "xaxis: $xAxis, yaxis: $yAxis")
                 view.invalidate()
             }
         }

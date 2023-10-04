@@ -31,20 +31,12 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <EditText
-            android:id="@+id/textbox_image"
+        <Spinner
+            android:id="@+id/spinner_image"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:hint="Insert Image ID"
-            android:maxLength="1"
-            android:autofillHints="5"
-            android:inputType="text"
-            android:ems="10"
-            android:text=""
-            android:singleLine="true"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:background="@android:drawable/btn_dropdown"
+            android:spinnerMode="dropdown"/>
 
         <TextView
             android:layout_width="match_parent"
@@ -55,20 +47,14 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <EditText
-            android:id="@+id/textbox_image_direction"
+
+
+        <Spinner
+            android:id="@+id/spinner_image_direction"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:hint="Insert N,S,E,W"
-            android:maxLength="1"
-            android:autofillHints="N"
-            android:inputType="text"
-            android:ems="10"
-            android:text=""
-            android:singleLine="true"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:background="@android:drawable/btn_dropdown"
+            android:spinnerMode="dropdown"/>
 
         <Button
             android:id="@+id/button_update_obstacle_config"

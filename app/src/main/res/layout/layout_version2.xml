@@ -13,7 +13,7 @@
         >
         <LinearLayout
             android:id="@+id/map_container"
-            android:layout_width="400dp"
+            android:layout_width="600px"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:visibility="visible"
@@ -170,7 +170,7 @@
             </LinearLayout>
             <RelativeLayout
                 android:id="@+id/map_overlay_for_obstacles"
-                android:layout_width="375px"
+                android:layout_width="500px"
                 android:layout_height="500px"
                 android:background="@drawable/border_map">
                 <sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.MapDrawer
@@ -184,8 +184,8 @@
 
             <LinearLayout
                 android:id="@+id/obstacle_panel"
-                android:layout_width="375px"
-                android:layout_height="wrap_content"
+                android:layout_width="500px"
+                android:layout_height="60px"
                 android:background="@drawable/shape"
                 android:orientation="vertical"
                 android:padding="10px"
@@ -193,8 +193,8 @@
                 >
                 <ImageView
                     android:id="@+id/draggable_obstacle"
-                    android:layout_width="75px"
-                    android:layout_height="75px"
+                    android:layout_width="36px"
+                    android:layout_height="36px"
                     android:src="@drawable/obstacle"
                     />
             </LinearLayout>
@@ -299,7 +299,7 @@
             </HorizontalScrollView>
             <HorizontalScrollView
                 android:id="@+id/scrollView2"
-                android:layout_width="800px"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 app:layout_constraintTop_toBottomOf="@+id/horizontalScrollView">
 
@@ -502,7 +502,7 @@
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="300dp"
+                        android:layout_height="250dp"
                         android:layout_marginStart="10dp"
                         android:orientation="horizontal">
 
@@ -656,7 +656,7 @@
                                     app:layout_constraintTop_toTopOf="parent"
                                     android:overScrollMode="always"
                                     android:background="@drawable/listview_border"
-                                    android:layout_weight="0.8">
+                                    android:layout_weight="0.7">
                                     <TextView
                                         android:id="@+id/message_log"
                                         android:layout_width="match_parent"
@@ -675,7 +675,7 @@
                                     android:layout_height="0dp"
                                     android:layout_marginTop="10dp"
                                     android:orientation="horizontal"
-                                    android:layout_weight="0.2">
+                                    android:layout_weight="0.5">
                                     <EditText
                                         android:id="@+id/textbox_send_message"
                                         android:layout_width="0dp"
@@ -687,7 +687,7 @@
                                         android:inputType="text"
                                         android:textSize="16sp"
                                         android:autofillHints="@string/hint_send_message"
-                                        android:hint="Write Message"
+                                        android:hint="@string/hint_send_message"
                                         android:ems="10"
                                         android:singleLine="true"
                                         android:text=""

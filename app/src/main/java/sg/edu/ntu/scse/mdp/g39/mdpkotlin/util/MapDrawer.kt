@@ -367,23 +367,6 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
 
         canvas.drawRect(rectangle, obstaclePaint)
         canvas.drawRect(rectangle, obstaclePaintBorder)
-        when (obstacle) {
-            "1" -> canvas.drawText("01", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "2" -> canvas.drawText("02", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "3" -> canvas.drawText("03", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "4" -> canvas.drawText("04", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "5" -> canvas.drawText("05", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "6" -> canvas.drawText("06", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "7" -> canvas.drawText("07", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "8" -> canvas.drawText("08", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "9" -> canvas.drawText("09", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "10" -> canvas.drawText("10", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "11" -> canvas.drawText("11", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "12" -> canvas.drawText("12", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "13" -> canvas.drawText("13", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "14" -> canvas.drawText("14", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-            "15" -> canvas.drawText("15", tleft.toFloat(), ttop.toFloat(), obstacleTextPaint)
-        }
     }
     private fun drawStatusText(canvas:Canvas){
         var offset = (gridDimensions).toFloat()
@@ -419,7 +402,7 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
         var timeElapsed:String = "${timeFormatter.format(0)} m ${timeFormatter.format(0)} s"
 
         private var exploredPath = Array(Map.COLUMN) { Array(Map.ROW) { "0" } }
-        private var obstacles = ArrayList<ArrayList<Int>>();
+        private var obstacles = Array(Map.COLUMN) { Array(Map.ROW) { "0" } }
 
         @JvmStatic
         private fun initMap() {
@@ -515,14 +498,8 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
         }
 
         @JvmStatic fun validMidpoint(x_axis: Int, y_axis: Int): Boolean { return (x_axis >= 1 && x_axis < Map.VIRTUAL_COLUMN) && (y_axis >= 1 && y_axis < Map.VIRTUAL_ROW) }
-        @JvmStatic fun validObstacle(x_axis: Int, y_axis: Int): Boolean {
-            for(i in x_axis-1..x_axis+1){
-                for(j in y_axis-1..y_axis+1){
-                    if(exploredPath[i][j]!="0"&& exploredPath[i][j]!="0")
-                        return false
-                }
-            }
-            return (x_axis >= 1 && x_axis < Map.VIRTUAL_COLUMN-1) && (y_axis >= 1 && y_axis < Map.VIRTUAL_ROW-1)
+        @JvmStatic fun isNotOccupied(x: Int, y: Int): Boolean {
+            return (exploredPath[x][y]=="0" || exploredPath[x][y]=="1")
         }
 
         @JvmStatic
@@ -574,46 +551,50 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
         }
         @JvmStatic
         fun setObstacle(x_axis: Int, y_axis: Int): Boolean {
-            // just make sure there is no surround obstacles, inclusive of itself
-            if (!validObstacle(x_axis, y_axis)) return false
-
             exploredPath[x_axis][y_axis]="2"
-            exploredPath[x_axis-1][y_axis]="2"
-            exploredPath[x_axis+1][y_axis]="2"
-            exploredPath[x_axis][y_axis-1]="2"
-            exploredPath[x_axis-1][y_axis-1]="2"
-            exploredPath[x_axis+1][y_axis-1]="2"
-            exploredPath[x_axis][y_axis+1]="2"
-            exploredPath[x_axis-1][y_axis+1]="2"
-            exploredPath[x_axis+1][y_axis+1]="2"
-//            obstacles.add(arrayListOf<Int>(x_axis,y_axis))
             return true
         }
         fun removeObstacle(x_axis: Int, y_axis: Int):Boolean{
             if(!isObstacle(x_axis, y_axis))return false
             exploredPath[x_axis][y_axis]="0"
-            exploredPath[x_axis-1][y_axis]="0"
-            exploredPath[x_axis+1][y_axis]="0"
-            exploredPath[x_axis][y_axis-1]="0"
-            exploredPath[x_axis-1][y_axis-1]="0"
-            exploredPath[x_axis+1][y_axis-1]="0"
-            exploredPath[x_axis][y_axis+1]="0"
-            exploredPath[x_axis-1][y_axis+1]="0"
-            exploredPath[x_axis+1][y_axis+1]="0"
             return true
         }
         fun isObstacle(x:Int, y:Int):Boolean{
-            for(i in x-1..x+1){
-                for(j in y-1..y+1){
-                    if(exploredPath[i][j]=="0" && exploredPath[i][j]=="0")
-                        return false
-                }
-            }
+            if(exploredPath[x][y]=="0" || exploredPath[x][y]=="1")
+                return false
+
             return true
         }
 
-        fun updateObstacle(id:String, x:Int, y:Int){
-            exploredPath[x][y] = id;
+        fun updateObstacleDirection(id:String, x:Int, y:Int){
+            try{
+            obstacles[x][y] = id;}
+            catch(e:Exception){
+                Log.e("map", "updateObstacle" + e.toString())
+            }
+        }
+        fun getMapStatus():String{
+            var msg = ""
+            for(i in 0..Map.COLUMN-1){
+                for(j in 0..Map.ROW-1){
+                    msg += exploredPath[j][i]
+                }
+                msg += ":"
+            }
+            return msg
+        }
+
+        fun getObstaclePositions():String{
+            var msg =  "ALG|:"
+            for(i in 0..Map.COLUMN-1){
+                for(j in 0..Map.ROW-1){
+                    if(exploredPath[j][i].equals("2")){
+                        msg += "$j,$i,${obstacles[j][i]}"
+                        msg += ":"
+                    }
+                }
+            }
+            return msg
         }
     }
 }
