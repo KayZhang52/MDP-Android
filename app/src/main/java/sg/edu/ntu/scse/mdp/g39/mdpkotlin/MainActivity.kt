@@ -36,6 +36,7 @@ import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Protocol
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Store
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.service.BluetoothService
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.Cmd
+import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.ImageRecognition
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.MapDrawer
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.Parser
 import java.io.*
@@ -192,9 +193,7 @@ class MainActivity : AppCompatActivity() {
     private val btConnectDisconnectReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             try {
-
-
-                Log.d("bluetooth", "broadcast received")
+                Log.d("bluetoothBroadcast", "broadcast action: ${intent.action}")
                 val action = intent.action
                 val device: BluetoothDevice?
                 val getCurrentConnection: String?
@@ -234,7 +233,7 @@ class MainActivity : AppCompatActivity() {
                         getCurrentConnection = label_bluetooth_status.text.toString()
                         device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
 
-                        if (getCurrentConnection == "Connected" && device.address == connectedDevice.address) {
+                        if (getCurrentConnection.startsWith("connected", ignoreCase = true) && device.address == connectedDevice.address) {
                             connectionThread?.cancel()
 
                             if (!disconnectState) {
@@ -305,21 +304,55 @@ class MainActivity : AppCompatActivity() {
             when (message.what) {
                 Protocol.MESSAGE_RECEIVE -> {
                     val buffer = message.obj as ByteArray
-                    val data = String(buffer, 0, message.arg1)
+                    val data:String = String(buffer, 0, message.arg1).trim()
                     Log.d(TAG, "Received data : $data")
                     if (activity == null) {
                         Log.e(TAG, "No activity object, Not continuing..."); return
                     }
                     activity.messageLog.addMessage(
                         sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Message.MESSAGE_RECEIVER,
-                        data.trim()
+                        data
                     )
-//                    activity.handleAction(data)
-                    val textArr = data.split(";")
-                    textArr.forEach {
-                        if (it.isEmpty()) return@forEach
-                        activity.handleAction(it.trim()) // Handles messages that are valid commands from the robot
+
+                    // received string format "img:4" means image of a number 4 is recognized
+                    if(data.substring(0, minOf(3, data.length)) == "img"){
+                        val img:String = data.substring(4,data.length)
+                        Log.d("imageCommand", "received image: $img")
+                        activity.handleUpdateImage(img)
+
+                        ImageRecognition.handleNewImage(img.toInt())
+                        activity.renderObstacleOverlay(activity)
+                        Toast.makeText(activity, "Received image id $img", Toast.LENGTH_SHORT).show()
                     }
+
+                    // received string format "seq:1,1:2,2,3,3:"
+                    if(data.substring(0, minOf(3, data.length)) == "seq"){
+                        try{
+                        var arrOfStr = data.substring(4,data.length).split(":")
+                        var coordinates:MutableList<Pair<Int,Int>> = mutableListOf()
+                        arrOfStr.forEach{
+                            if(it.length >= 3) {
+                                val arr = it.split(",")
+                                val x = arr[0].toInt()
+                                val y = arr[1].toInt()
+                                coordinates.add(Pair(x,y))
+                            }
+                        }
+                        ImageRecognition.coordinatesInSequence = coordinates
+                            ImageRecognition.currentIdx = 0
+                        Log.d("imageSequence",  "received seq: ${arrOfStr.joinToString("|")}")
+                        Toast.makeText(activity, "Setting obstacle sequence...", Toast.LENGTH_SHORT).show()}
+                        catch(e:Exception){
+                            Log.e("seqException", "error in seq command: ${e.toString()}")
+                        }
+                    }
+//                    activity.handleAction(data)
+//                    val textArr = data.split(";")
+//                    textArr.forEach {
+//                        if (it.isEmpty()) return@forEach
+//                        Log.d("command", "received command: $it")
+//                        activity.handleAction(it.trim()) // Handles messages that are valid commands from the robot
+//                    }
 
                     activity.messageLogView?.text = activity.messageLog.getLog()
                 }
@@ -632,7 +665,7 @@ class MainActivity : AppCompatActivity() {
         dialogBuilder.show()
     }
 
-    private fun showDialogObstacle(obs:ObstacleView, xAxis:Int, yAxis:Int){
+    private fun showDialogObstacle(x:Int, y:Int){
         Log.d("obstacle", "initialize")
         val dialogView = inflater.inflate(R.layout.dialog_obstacle, null)
         val dialogBuilder = AlertDialog.Builder(this).setView(dialogView)
@@ -649,10 +682,11 @@ class MainActivity : AppCompatActivity() {
 
         val dialog:AlertDialog = dialogBuilder.create()
         dialogView.findViewById<Button>(R.id.button_update_obstacle_config).setOnClickListener(View.OnClickListener{
-            obs.setImage(dropdown2.selectedItem.toString().first())
-            obs.setImageFace(dropdown.selectedItem.toString().first())
-            MapDrawer.updateObstacleDirection(dropdown.selectedItem.toString(), xAxis, yAxis)
+            val face = dropdown.selectedItem.toString().first()
+            val image = dropdown2.selectedItem.toString().toInt()
+            ImageRecognition.updateObstacle(x,y,face,image)
             dialog.dismiss()
+            renderObstacleOverlay(this.applicationContext)
         })
         dialog.show()
         Log.d("obstacle", "end")
@@ -672,11 +706,11 @@ class MainActivity : AppCompatActivity() {
         updateRobotPositionLabel()
     }
     private val onJoystickUp = View.OnClickListener {
-        val xAxis = MapDrawer.Robot_X
-        val yAxis = MapDrawer.Robot_Y
+        val x = MapDrawer.Robot_X
+        val y = MapDrawer.Robot_Y
 
         MapDrawer.moveUp()
-        if (!(xAxis == MapDrawer.Robot_X && yAxis == MapDrawer.Robot_Y)) sendStringToBtConnection(
+        if (!(x == MapDrawer.Robot_X && y == MapDrawer.Robot_Y)) sendStringToBtConnection(
             commandWrap(Cmd.DIRECTION_UP)
         )
         map_canvas.invalidate()
@@ -685,6 +719,7 @@ class MainActivity : AppCompatActivity() {
     private val onStart = View.OnClickListener {
         if (startModeState) {
             startModeState = false
+            MapDrawer.imgCount = 0
             button_start_phase.text = "Start"
 //            sendStringToBtConnection(commandWrap(Cmd.STOP))
             timer.cancel()
@@ -706,12 +741,8 @@ class MainActivity : AppCompatActivity() {
                     val minutes = seconds / 60
                     seconds %= 60
                     val timeFormatter = DecimalFormat("00")
-                    val time =
-                        "${timeFormatter.format(minutes)} m ${timeFormatter.format(seconds)} s"
-                    label_time_elapsed.text = time
-                    MapDrawer.timeElapsed = time
+                    MapDrawer.timeElapsed="${timeFormatter.format(minutes)} m ${timeFormatter.format(seconds)} s"
                 }
-
                 override fun onFinish() {}
             }.start()
             startModeUI()
@@ -807,11 +838,11 @@ class MainActivity : AppCompatActivity() {
                         .y
                 )
                 if (motionEvent.action == MotionEvent.ACTION_DOWN && (MapDrawer.selectStartPoint || MapDrawer.selectWayPoint)) {
-                    val xAxis = (motionEvent.x / MapDrawer.gridDimensions).toInt()
-                    val yAxis = (motionEvent.y / MapDrawer.gridDimensions).toInt()
+                    val x = (motionEvent.x / MapDrawer.gridDimensions).toInt()
+                    val y = (motionEvent.y / MapDrawer.gridDimensions).toInt()
 
-                    if (MapDrawer.validMidpoint(xAxis, yAxis)) {
-                        MapDrawer.updateSelection(xAxis, yAxis)
+                    if (MapDrawer.validMidpoint(x, y)) {
+                        MapDrawer.updateSelection(x, y)
                         map_canvas.invalidate()
                     }
                     updateRobotPositionLabel()
@@ -850,7 +881,7 @@ class MainActivity : AppCompatActivity() {
                 dialogInterface.dismiss()
                 sendStringToBtConnection(commandWrap(Cmd.CLEAR)) // Send Clear
                 try{
-                    val childCount = map_overlay_for_obstacles.getChildCount();
+                    val childCount = map_overlay_for_obstacles.childCount;
                     for (i in 1..childCount) {
                         val v = map_overlay_for_obstacles.getChildAt(i)
                         if(v!=null)
@@ -1055,22 +1086,40 @@ class MainActivity : AppCompatActivity() {
     private fun handleUpdateImage(imgID: String) {
         image_content.setImageResource(
             when (imgID) {
-                "0" -> R.drawable.img_0
-                "1" -> R.drawable.img_1
-                "2" -> R.drawable.img_2
-                "3" -> R.drawable.img_3
-                "4" -> R.drawable.img_4
-                "5" -> R.drawable.img_5
-                "6" -> R.drawable.img_6
-                "7" -> R.drawable.img_7
-                "8" -> R.drawable.img_8
-                "9" -> R.drawable.img_9
-                "10" -> R.drawable.img_10
-                "11" -> R.drawable.img_11
-                "12" -> R.drawable.img_12
-                "13" -> R.drawable.img_13
-                "14" -> R.drawable.img_14
-                "15" -> R.drawable.img_15
+                "11" -> R.drawable.image_11
+                "12" -> R.drawable.image_12
+                "13" -> R.drawable.image_13
+                "14" -> R.drawable.image_14
+                "15" -> R.drawable.image_15
+                "20" -> R.drawable.image_20
+                "21" -> R.drawable.image_21
+                "22" -> R.drawable.image_22
+                "23" -> R.drawable.image_23
+                "24" -> R.drawable.image_24
+                "25" -> R.drawable.image_25
+                "26" -> R.drawable.image_26
+                "27" -> R.drawable.image_27
+                "28" -> R.drawable.image_28
+                "29" -> R.drawable.image_29
+                "30" -> R.drawable.image_30
+                "31" -> R.drawable.image_31
+
+                "36" -> R.drawable.image_36
+                "37" -> R.drawable.image_37
+                "38" -> R.drawable.image_38
+                "39" -> R.drawable.image_39
+
+//                "6" -> R.drawable.image_16
+//                "7" -> R.drawable.image_17
+//                "8" -> R.drawable.image_18
+//                "9" -> R.drawable.image_19
+//                "10" -> R.drawable.image_15
+//                "11" -> R.drawable.image_20
+//                "12" -> R.drawable.image_21
+//                "13" -> R.drawable.image_22
+//                "14" -> R.drawable.image23
+//                "15" -> R.drawable.image_24
+
                 else -> R.drawable.img_0
             }
         )
@@ -1124,11 +1173,10 @@ class MainActivity : AppCompatActivity() {
             DragEvent.ACTION_DRAG_STARTED -> {
                 try {
                     val obstacleOverlay = dragEvent.localState as View
-                    val xAxis = (obstacleOverlay.left / MapDrawer.gridDimensions).toInt()
-                    val yAxis = (obstacleOverlay.top / MapDrawer.gridDimensions).toInt()
-                    val bool = MapDrawer.removeObstacle(xAxis, yAxis)
-                    if(!bool)
-                        Log.e("map:action_drag_started", String.format("failed to remove obstacleOverlay, called removeObstacle(%d, %d)", xAxis, yAxis))
+                    val x = (obstacleOverlay.left / MapDrawer.gridDimensions).toInt()
+                    val y = (obstacleOverlay.top / MapDrawer.gridDimensions).toInt()
+                    MapDrawer.removeObstacle(x, y)
+                    ImageRecognition.removeObstacle(x,y)
                     view.invalidate()
                 } catch (e: Exception) {
                     Log.e("mapdragstart", "${e.toString()}")
@@ -1137,7 +1185,8 @@ class MainActivity : AppCompatActivity() {
 
             DragEvent.ACTION_DRAG_EXITED -> {
                 val obstacle = dragEvent.localState as View
-                (obstacle.parent as ViewGroup).removeView(obstacle)
+                if(view.tag == "obstacle_tile_overlay")
+                        (obstacle.parent as ViewGroup).removeView(obstacle)
             }
 
             // should only happens when user drag the obstacle into the map
@@ -1147,57 +1196,67 @@ class MainActivity : AppCompatActivity() {
                     val y = (dragEvent.y / MapDrawer.gridDimensions).toInt()
                     if (MapDrawer.isNotOccupied(x, y)) {
                         MapDrawer.setObstacle(x, y)
-                        val obstacleView = ObstacleView(view.context)
-                        obstacleView.width = MapDrawer.gridDimensions
-                        obstacleView.height = MapDrawer.gridDimensions
+                        ImageRecognition.addObstacle(x,y)
 
-                        obstacleView.setImage('2')
-                        obstacleView.setBackgroundColor(resources.getColor(android.R.color.black))
-                        val params: RelativeLayout.LayoutParams = RelativeLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                        params.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE)
-                        params.leftMargin = x * MapDrawer.gridDimensions
-                        params.topMargin = y * MapDrawer.gridDimensions
-                        showDialogObstacle(obstacleView, x, y)
-                        obstacleView.setOnTouchListener { view: View, motionEvent: MotionEvent ->
-                            if (motionEvent.action == MotionEvent.ACTION_DOWN) {
-                                val data = ClipData.newPlainText("", "")
-                                val shadowBuilder = DragShadowBuilder(
-                                    view
-                                )
-                                view.startDrag(data, shadowBuilder, view, 0)
-                                view.visibility = View.INVISIBLE
-                                true
-                            } else {
-                                false
-                            }
-                        }
-//                        sendStringToBtConnection(";{$FROMANDROID\"com\":\"obs\",\"x\":$xAxis,\"y\":$yAxis,\"face\":${obstacleView.getImageFace()}}"
+
+//                      sendStringToBtConnection(";{$FROMANDROID\"com\":\"obs\",\"x\":$x,\"y\":$y,\"face\":${obstacleView.getImageFace()}}"
                         try {
-                            map_overlay_for_obstacles.addView(obstacleView, params)
+                            showDialogObstacle(x, y)
                         } catch (e: Exception) {
-                            Log.e("mapDragging", e.toString())
+                            Log.e("mapRenderDraggableObstacleOverlay", e.toString())
                         }
 
                     }
+                    renderObstacleOverlay(view.context)
+                    view.invalidate()
                 } catch(e:Exception){
                     Log.e("mapOnDrop", e.toString())
                 }
-                view.invalidate()
             }
         }
         return@OnDragListener true
 
     }
 
+    private fun renderObstacleOverlay(context:Context){
+        for (i in map_overlay_for_obstacles.childCount - 1 downTo 0) {
+            val childView = map_overlay_for_obstacles.getChildAt(i)
+            if (childView != map_canvas) {
+                map_overlay_for_obstacles.removeViewAt(i)
+            }
+        }
+        val map = ImageRecognition.obstaclesMap
+        for (key in map.keys) {
+            val obstacle = map.get(key)
+            val x = key.first
+            val y = key.second
+            val face = obstacle!!.face
+            val imgId = obstacle!!.imgId
+            val obstacleView = ObstacleView(context)
+            if(face != null){
+                obstacleView.setImageFace(face)
+            }
+            if(imgId != null){
+                obstacleView.setImage(imgId)
+            }
+
+            val params: RelativeLayout.LayoutParams = RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            params.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE)
+            params.leftMargin = x * MapDrawer.gridDimensions
+            params.topMargin = y * MapDrawer.gridDimensions
+            map_overlay_for_obstacles.addView(obstacleView, params)
+        }
+    }
+
     private val onMove = JoystickView.OnMoveListener { angle, _ ->
         if (angle in 46..134) {
-            val xAxis = MapDrawer.Robot_X
-            val yAxis = MapDrawer.Robot_Y
+            val x = MapDrawer.Robot_X
+            val y = MapDrawer.Robot_Y
 
             MapDrawer.moveUp()
-            if (!(xAxis == MapDrawer.Robot_X && yAxis == MapDrawer.Robot_Y)) sendStringToBtConnection(
+            if (!(x == MapDrawer.Robot_X && y == MapDrawer.Robot_Y)) sendStringToBtConnection(
                 commandWrap(
                     Cmd.DIRECTION_UP
                 )

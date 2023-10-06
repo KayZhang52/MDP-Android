@@ -70,7 +70,7 @@ class BluetoothService(private val BTHandler: Handler) {
                 try {
                     it.connect()
                 } catch (connectEx: IOException) {
-                    Log.d(TAG, "Failed to establish connection")
+                    Log.d(TAG, "Failed to establish connection: ${connectEx.toString()}")
                     try {
                         it.close()
                     } catch (closeEx: IOException) {
@@ -169,8 +169,8 @@ class BluetoothService(private val BTHandler: Handler) {
     }
 
     companion object {
-        private const val TAG = "BluetoothSvc"
-        private val device_uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+        private const val TAG = "BluetoothService"
+        private val device_uuid = UUID.fromString("94f39d29-7d6d-437d-973b-fba39e49d4ee")
         private const val device_name = "MDPGroup39Android"
     }
 }

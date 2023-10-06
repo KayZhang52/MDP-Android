@@ -403,6 +403,9 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
 
         private var exploredPath = Array(Map.COLUMN) { Array(Map.ROW) { "0" } }
         private var obstacles = Array(Map.COLUMN) { Array(Map.ROW) { "0" } }
+        // a temporary solution to "on start keep track of number of images recognized"
+        var imgCount = 0
+        var imgTaskList:MutableList<Pair<Int,Int>> = mutableListOf()
 
         @JvmStatic
         private fun initMap() {
@@ -589,7 +592,7 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
             for(i in 0..Map.COLUMN-1){
                 for(j in 0..Map.ROW-1){
                     if(exploredPath[j][i].equals("2")){
-                        msg += "$j,$i,${obstacles[j][i]}"
+                        msg += "$j,$i,${ImageRecognition.obstaclesMap.get(Pair(j,i))!!.face}"
                         msg += ":"
                     }
                 }
