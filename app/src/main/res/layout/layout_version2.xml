@@ -323,7 +323,7 @@
                             android:gravity="center"
                             android:text="@string/label_configurations"
                             android:textAlignment="center"
-                            android:textColor="@android:color/background_light" />
+                            android:textColor="#6D4C41" />
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -424,6 +424,8 @@
                                     android:text="@string/button_refresh"
                                     android:textColor="@color/colorButtonTextTheme"
                                     />
+
+
                                 </info.hoang8f.android.segmented.SegmentedGroup>
 
 
@@ -443,10 +445,10 @@
                                 android:id="@+id/button_set_origin"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
+                                android:layout_marginRight="5dp"
                                 android:background="@color/colorAppTheme"
                                 android:text="@string/button_set_origin"
-                                android:textColor="@color/colorButtonTextTheme"
-                                android:layout_marginRight="5dp"/>
+                                android:textColor="#7B1FA2" />
 
                             <Button
                                 android:id="@+id/button_set_waypoint"
@@ -454,7 +456,7 @@
                                 android:layout_height="wrap_content"
                                 android:background="@color/colorAppTheme"
                                 android:text="@string/button_set_waypoint"
-                                android:textColor="@color/colorButtonTextTheme" />
+                                android:textColor="#7B1FA2" />
 
                             <LinearLayout
                                 android:layout_width="match_parent"
@@ -497,6 +499,22 @@
                                     android:textStyle="bold" />
                             </LinearLayout>
                         </LinearLayout>
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content">
+                            <TextView
+                                android:id="@+id/add_to_text_title"
+                                android:layout_width="wrap_content"
+                                android:layout_height="30dp"
+                                android:text="Add to:"
+                                android:background="@color/colorAppTheme"/>
+
+                            <TextView
+                                android:id="@+id/draggable_obstacle_coordinate_text"
+                                android:layout_width="wrap_content"
+                                android:layout_height="30dp"
+                                android:text="TextView" />
+                        </LinearLayout>
 
                     </LinearLayout>
 
@@ -520,7 +538,7 @@
                                 android:gravity="center"
                                 android:text="@string/label_image"
                                 android:textAlignment="center"
-                                android:textColor="@android:color/background_light" />
+                                android:textColor="#6D4C41" />
 
                             <TextView
                                 android:layout_width="match_parent"
@@ -640,7 +658,7 @@
                                 android:gravity="center"
                                 android:text="Message Log"
                                 android:textAlignment="center"
-                                android:textColor="@android:color/background_light" />
+                                android:textColor="#6D4C41" />
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"

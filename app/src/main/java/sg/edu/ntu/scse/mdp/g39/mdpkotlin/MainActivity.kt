@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private var autoModeState = true
     private val deviceList = ArrayList<Device>()
     private lateinit var timer: CountDownTimer
+    private var isDragging: Boolean = false
 
     // Additional GUI Compon2ents
     private lateinit var inflater: LayoutInflater
@@ -833,10 +834,6 @@ class MainActivity : AppCompatActivity() {
     private val onSetMap = View.OnTouchListener { _, motionEvent ->
         if (motionEvent != null) {
             try{
-                Log.d(
-                    "map", "x: " + motionEvent.x + ", y: " + motionEvent
-                        .y
-                )
                 if (motionEvent.action == MotionEvent.ACTION_DOWN && (MapDrawer.selectStartPoint || MapDrawer.selectWayPoint)) {
                     val x = (motionEvent.x / MapDrawer.gridDimensions).toInt()
                     val y = (motionEvent.y / MapDrawer.gridDimensions).toInt()
@@ -853,7 +850,7 @@ class MainActivity : AppCompatActivity() {
             }
 
         }
-        false
+        true
     }
     private val onRefreshState = View.OnClickListener {
         map_canvas.invalidate()
@@ -879,17 +876,8 @@ class MainActivity : AppCompatActivity() {
                 image_content.setImageResource(R.drawable.img_0)
                 map_canvas.invalidate()
                 dialogInterface.dismiss()
-                sendStringToBtConnection(commandWrap(Cmd.CLEAR)) // Send Clear
-                try{
-                    val childCount = map_overlay_for_obstacles.childCount;
-                    for (i in 1..childCount) {
-                        val v = map_overlay_for_obstacles.getChildAt(i)
-                        if(v!=null)
-                            map_overlay_for_obstacles.removeView(v)
-                    }
-                } catch(e:Exception){
-                    Log.e("map reset",  e.toString())
-                }
+                ImageRecognition.resetObstacles()
+                renderObstacleOverlay(this.context)
 
             }
             setPositiveButton("NO") { dialogInterface, _ -> dialogInterface.dismiss() }
@@ -1169,8 +1157,10 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private val onDraggableObstacleEnteringMap = View.OnDragListener { view, dragEvent ->
+        Log.d("drag", "event recieved: ${dragEvent.action}")
         when (dragEvent.action) {
             DragEvent.ACTION_DRAG_STARTED -> {
+                isDragging = true
                 try {
                     val obstacleOverlay = dragEvent.localState as View
                     val x = (obstacleOverlay.left / MapDrawer.gridDimensions).toInt()
@@ -1178,19 +1168,35 @@ class MainActivity : AppCompatActivity() {
                     MapDrawer.removeObstacle(x, y)
                     ImageRecognition.removeObstacle(x,y)
                     view.invalidate()
+                    true
                 } catch (e: Exception) {
                     Log.e("mapdragstart", "${e.toString()}")
                 }
             }
 
             DragEvent.ACTION_DRAG_EXITED -> {
+                isDragging = false
                 val obstacle = dragEvent.localState as View
                 if(view.tag == "obstacle_tile_overlay")
                         (obstacle.parent as ViewGroup).removeView(obstacle)
             }
 
+            DragEvent.ACTION_DRAG_ENTERED ->{
+                isDragging = true
+            }
+
+            DragEvent.ACTION_DRAG_LOCATION ->{
+                val x = (dragEvent.x / MapDrawer.gridDimensions).toInt()
+                val y = (dragEvent.y / MapDrawer.gridDimensions).toInt()
+                draggable_obstacle_coordinate_text.text = "($x, $y) which is (${x}, ${19-y}) if origin bottom-left"
+            }
+
+
+
             // should only happens when user drag the obstacle into the map
             DragEvent.ACTION_DROP -> {
+                isDragging = false
+//                draggable_obstacle_coordinate_text.text = ""
                 try {
                     val x = (dragEvent.x / MapDrawer.gridDimensions).toInt()
                     val y = (dragEvent.y / MapDrawer.gridDimensions).toInt()
@@ -1217,6 +1223,8 @@ class MainActivity : AppCompatActivity() {
         return@OnDragListener true
 
     }
+
+
 
     private fun renderObstacleOverlay(context:Context){
         for (i in map_overlay_for_obstacles.childCount - 1 downTo 0) {

@@ -42,6 +42,11 @@ class ImageRecognition(context: Context, attrs: AttributeSet? = null): View(cont
                 }
             }
         }
+
+        fun resetObstacles(){
+            obstaclesMap.clear()
+            coordinatesInSequence.clear()
+        }
     }
 
 }
