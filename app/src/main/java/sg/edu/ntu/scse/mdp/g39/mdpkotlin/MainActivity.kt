@@ -85,7 +85,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         inflater = LayoutInflater.from(this)
-        setContentView(R.layout.layout_version2)
+        setContentView(R.layout.layout_activity_main)
 
         // UI Configurations
         configureToggle()
@@ -101,6 +101,26 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
                 1
             )
+        if(ActivityCompat.checkSelfPermission(this,
+                android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+            //without permission, attempt to request it.
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                1
+            )
+        }
+        if(ActivityCompat.checkSelfPermission(this,
+                android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            //without permission, attempt to request it.
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.BLUETOOTH_CONNECT),
+                1
+            )
+        }
+
+
 
 
         // Bluetooth Adapter
@@ -114,15 +134,6 @@ class MainActivity : AppCompatActivity() {
         if (!isGpsEnabled) {
             startActivityForResult(
                 Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS),
-                1
-            )
-        }
-        if(ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            //without permission, attempt to request it.
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 1
             )
         }
@@ -207,7 +218,10 @@ class MainActivity : AppCompatActivity() {
                             TAG,
                             if (device != null && device.name != null) device.name else "No device name"
                         )
-                        addDevice(device, device.name, device.address)
+                        if(device != null){
+                            addDevice(device, device.name, device.address)
+                        }
+
                     }
 
                     BluetoothDevice.ACTION_ACL_CONNECTED -> {
@@ -215,6 +229,7 @@ class MainActivity : AppCompatActivity() {
                         if (connectionThread != null || !disconnectState && getCurrentConnection == "Not Connected") {
                             Log.d("bt", "Connected with a device")
                             device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                            if(device==null)return
                             connectedState(device)
                             disconnectState = false
 
@@ -234,7 +249,7 @@ class MainActivity : AppCompatActivity() {
                         getCurrentConnection = label_bluetooth_status.text.toString()
                         device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
 
-                        if (getCurrentConnection.startsWith("connected", ignoreCase = true) && device.address == connectedDevice.address) {
+                        if (getCurrentConnection.startsWith("connected", ignoreCase = true) && device!!.address == connectedDevice.address) {
                             connectionThread?.cancel()
 
                             if (!disconnectState) {
@@ -908,6 +923,14 @@ class MainActivity : AppCompatActivity() {
             disableElement(buttonBluetoothServerListen)
             buttonScan?.text = "Stop Scan"
             clearBtDeviceList()
+            if(ActivityCompat.checkSelfPermission(this,
+                    Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.BLUETOOTH_SCAN),
+                    1
+                )
+            }
             val i = bluetoothAdapter.startDiscovery()
             Log.d("bluetooth", "startdiscovery = "+i.toString())
         } else if (buttonScan?.text == "Stop Scan") {
@@ -1294,6 +1317,7 @@ class MainActivity : AppCompatActivity() {
         Log.d("mapDimension", "gridDimension set to ${MapDrawer.gridDimensions}")
         map_canvas.invalidate()
     }
+
 
     companion object {
         private const val TAG = "Main"
