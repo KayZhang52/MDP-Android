@@ -5,7 +5,7 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.View
 
-class ImageRecognition(context: Context, attrs: AttributeSet? = null): View(context, attrs) {
+class ImageRecognition{
     companion object{
         // State variables stored here in similar format as MapDrawer.
         var obstaclesMap = HashMap<Pair<Int, Int>, Obstacle>()

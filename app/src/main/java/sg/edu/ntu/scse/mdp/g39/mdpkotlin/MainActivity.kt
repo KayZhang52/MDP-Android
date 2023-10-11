@@ -5,13 +5,13 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -27,24 +27,32 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModel
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import io.github.controlwear.virtual.joystick.android.JoystickView
-import kotlinx.android.synthetic.main.layout_version2.*
+import sg.edu.ntu.scse.mdp.g39.mdpkotlin.databinding.LayoutVersion2Binding
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Device
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.MessageLog
-import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.ObstacleView
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Protocol
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Store
+import sg.edu.ntu.scse.mdp.g39.mdpkotlin.model.BluetoothModel
+import sg.edu.ntu.scse.mdp.g39.mdpkotlin.model.ObstacleModel
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.service.BluetoothService
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.Cmd
+import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.DraggableObstacleAdapter
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.ImageRecognition
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.MapDrawer
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.Parser
+import sg.edu.ntu.scse.mdp.g39.mdpkotlin.MainViewModel
 import java.io.*
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
 
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var binding: LayoutVersion2Binding
 
     // Activity Variables
     private lateinit var bluetoothAdapter: BluetoothAdapter
@@ -52,42 +60,48 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connectedDevice: BluetoothDevice
     private lateinit var listviewDevices: ListView
     private val messageLog = MessageLog()
-    private var isServer = false
-    private var disconnectState = true
+
+
+    // ui state
+    private var isConnected = true
     private var startModeState = false
     private var fastestPathModeState = false
     private var autoModeState = true
     private val deviceList = ArrayList<Device>()
     private lateinit var timer: CountDownTimer
-
-    // Additional GUI Compon2ents
     private lateinit var inflater: LayoutInflater
+    private var currentTime = System.currentTimeMillis()
 
-    /**
-     * Controls for Devices configs
-     */
+
+    // views
     private var buttonBluetoothServerListen: Button? = null
     private var buttonScan: Button? = null
-
-    // Controls for String configs
     private var textboxString1: EditText? = null
     private var textboxString2: EditText? = null
-
-    // Controls for Messaging Sending
     private var textboxSendMessage: EditText? = null
     private var scrollView: ScrollView? = null
     private var messageLogView: TextView? =null
-    private var currentTime = System.currentTimeMillis()
+    private var sensorOrientation: OrientationEventListener = null
+    private var recyclerView: RecyclerView? = null
 
-    private lateinit var sensorOrientation: OrientationEventListener
+    // data model instances
+    private var bluetoothModel = BluetoothModel(null, ArrayList<BluetoothDevice>())
+    private val obstacleList: ArrayList<ObstacleModel> = ArrayList<ObstacleModel>()
+
+    // viewModel
+    private var viewModel = MainViewModel()
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        inflater = LayoutInflater.from(this)
-        setContentView(R.layout.layout_version2)
+        binding = LayoutVersion2Binding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        // UI Configurations
-        configureToggle()
+        recyclerView = binding.recyclerView
+        recyclerView!!.layoutManager = LinearLayoutManager(this);
+        val myAdapter = DraggableObstacleAdapter(obstacleList)
+        recyclerView!!.adapter = myAdapter
 
         // Request for location (BT)
         if (ContextCompat.checkSelfPermission(
@@ -100,14 +114,6 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
                 1
             )
-
-
-        // Bluetooth Adapter
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-        if (!bluetoothAdapter.isEnabled) {
-            val enableBluetooth = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            startActivityForResult(enableBluetooth, 1)
-        }
         val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
         val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
         if (!isGpsEnabled) {
@@ -116,6 +122,19 @@ class MainActivity : AppCompatActivity() {
                 1
             )
         }
+        if (bluetoothAdapter.isEnabled == false) {
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            startActivityForResult(enableBtIntent, 1)
+        }
+
+        // Bluetooth Adapter
+        val bluetoothManager = this.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothAdapter = bluetoothManager.getAdapter()
+        if (!bluetoothAdapter.isEnabled) {
+            val enableBluetooth = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            startActivityForResult(enableBluetooth, 1)
+        }
+
         if(ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             //without permission, attempt to request it.
@@ -133,44 +152,36 @@ class MainActivity : AppCompatActivity() {
         registerReceiver(btConnectDisconnectReceiver, btConnectDisconnectBroadcastFilter)
 
         // Set up Main Activity Event Listeners
-        button_direction_left.setOnClickListener(onJoystickLeft)
-        button_direction_right.setOnClickListener(onJoystickRight)
-        button_direction_up.setOnClickListener(onJoystickUp)
-        button_refresh_phase.setOnClickListener(onRefreshState)
-        switch_motion_control.setOnCheckedChangeListener(onToggleMotionControl)
-        button_set_origin.setOnClickListener(onSetOrigin)
-        button_set_waypoint.setOnClickListener(onSetWaypoint)
-        button_start_phase.setOnClickListener(onStart)
-        toggle_mode_fastest_path.setOnCheckedChangeListener(onChangeFastestPathMode)
-        toggle_update_auto.setOnCheckedChangeListener(onChangeAutoMode)
-        map_canvas.setOnTouchListener(onSetMap)
-        button_reset_map.setOnClickListener(onResetMap)
+        binding.buttonDirectionLeft.setOnClickListener(onJoystickLeft)
+        binding.buttonDirectionRight.setOnClickListener(onJoystickRight)
+        binding.buttonDirectionUp.setOnClickListener(onJoystickUp)
+        binding.buttonRefreshPhase.setOnClickListener(onRefreshState)
+        binding.switchMotionControl.setOnCheckedChangeListener(onToggleMotionControl)
+        binding.buttonSetOrigin.setOnClickListener(onSetOrigin)
+        binding.buttonSetWaypoint.setOnClickListener(onSetWaypoint)
+        binding.buttonStartPhase.setOnClickListener(onStart)
+        binding.toggleModeFastestPath.setOnCheckedChangeListener(onChangeFastestPathMode)
+        binding.toggleUpdateAuto.setOnCheckedChangeListener(onChangeAutoMode)
+        binding.mapCanvas.setOnTouchListener(onSetMap)
+        binding.buttonResetMap.setOnClickListener(onResetMap)
         sensorOrientation = object : OrientationEventListener(this) {
             override fun onOrientationChanged(orientation: Int) {
                 handleRotation(orientation)
             }
         }
-        draggable_obstacle.setOnTouchListener(onDragged)
-        map_canvas.setOnDragListener(onDraggableObstacleEnteringMap)
-        joystickView.setOnMoveListener(onMove)
-        scrollView = msg_scroll_view
-        messageLogView = message_log
-        textboxSendMessage = textbox_send_message
-        button_send_message.setOnClickListener(sendMessage)
+        binding.draggableObstacle.setOnTouchListener(onDragged)
+        binding.mapCanvas.setOnDragListener(onDraggableObstacleEnteringMap)
+        binding.joystickView.setOnMoveListener(onMove)
+        scrollView = binding.msgScrollView
+        messageLogView = binding.messageLog
+        textboxSendMessage = binding.textboxSendMessage
+        binding.buttonSendMessage.setOnClickListener(sendMessage)
 
         try{
             adjustMapDimensions()
         }catch(e: Exception){
             Log.e("mapDimension", "failed to update: ${e.toString()}")
         }
-    }
-
-    private fun configureToggle() {
-        toggle_mode_exploration.setPadding(15, 10, 15, 10)
-        toggle_mode_fastest_path.setPadding(15, 10, 15, 10)
-
-        toggle_update_auto.setPadding(15, 5, 15, 5)
-        toggle_update_manual.setPadding(15, 5, 15, 5)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -191,66 +202,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val btConnectDisconnectReceiver = object : BroadcastReceiver() {
+        @SuppressLint("MissingPermission")
         override fun onReceive(context: Context, intent: Intent) {
             try {
-                Log.d("bluetoothBroadcast", "broadcast action: ${intent.action}")
-                val action = intent.action
-                val device: BluetoothDevice?
-                val getCurrentConnection: String?
-
-                when (action) {
+                when (intent.action) {
                     BluetoothDevice.ACTION_FOUND -> {
-                        Log.d("bluetooth", "Found")
-                        device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                        Log.d(
-                            TAG,
-                            if (device != null && device.name != null) device.name else "No device name"
-                        )
-                        addDevice(device, device.name, device.address)
+                        val device:BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                        if(device != null) addDevice(device)
                     }
 
                     BluetoothDevice.ACTION_ACL_CONNECTED -> {
-                        getCurrentConnection = label_bluetooth_status.text.toString()
-                        if (connectionThread != null || !disconnectState && getCurrentConnection == "Not Connected") {
+                        if (connectionThread != null || !isConnected) {
                             Log.d("bt", "Connected with a device")
-                            device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                            connectedState(device)
-                            disconnectState = false
+                            val device:BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                            if(device != null) connectedDevice = device
+                            viewModel.updateConnectionStatus(device.name, true)
 
-                            disableElement(buttonBluetoothServerListen)
-                            disableElement(buttonScan)
-                            disableElement(listviewDevices)
-
-                            if (isPairedDevicesOnly) {
-                                clearBtDeviceList()
-                                isPairedDevicesOnly = false
-                            }
+                            disableElement(listviewDevices) //TODO: find a way to remove this from main activity
                         }
                     }
 
                     BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
-                        Log.d(TAG, "Disconnected with a device")
-                        getCurrentConnection = label_bluetooth_status.text.toString()
-                        device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-
-                        if (getCurrentConnection.startsWith("connected", ignoreCase = true) && device.address == connectedDevice.address) {
+                        Log.d(TAG, "Disconnecting with a device")
+                        val device:BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                        if(device?.address == connectedDevice.address){
                             connectionThread?.cancel()
-
-                            if (!disconnectState) {
-                                if (isServer) {
-                                    Log.d(TAG, "Starting Server")
-                                    connectionThread = BluetoothService(streamHandler)
-                                    connectionThread?.startServer(bluetoothAdapter)
-                                } else {
-                                    Log.d(TAG, "Starting Client")
-                                    connectionThread = BluetoothService(streamHandler)
-                                    connectionThread?.connectDevice(connectedDevice)
-                                }
-                            } else connectionThread = null
-                            disconnectedState()
+                            viewModel.updateConnectionStatus(null, false)
                         }
                     }
-
                     else -> Log.d(TAG, "Default case for receiver")
                 }
             } catch(e:Exception){
@@ -263,13 +242,11 @@ class MainActivity : AppCompatActivity() {
     // reset the listview's adapter to the new DeviceAdapter instance.
     private fun addDevice(
         device: BluetoothDevice,
-        deviceName: String,
-        deviceHardwareAddress: String
     ) {
         var flag = true
         run toBreak@{
             deviceList.forEach {
-                if (it.macAddr == deviceHardwareAddress) {
+                if (it.macAddr == device.address) {
                     flag = false
                     return@toBreak
                 }
@@ -277,7 +254,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (flag) {
-            deviceList.add(Device(device, deviceName, deviceHardwareAddress))
+            deviceList.add(device)
             listviewDevices.invalidate()
 
             val state = listviewDevices.onSaveInstanceState()
@@ -321,7 +298,7 @@ class MainActivity : AppCompatActivity() {
                         activity.handleUpdateImage(img)
 
                         ImageRecognition.handleNewImage(img.toInt())
-                        activity.renderObstacleOverlay(activity)
+//                        activity.renderObstacleOverlay(activity)
                         Toast.makeText(activity, "Received image id $img", Toast.LENGTH_SHORT).show()
                     }
 
@@ -346,14 +323,6 @@ class MainActivity : AppCompatActivity() {
                             Log.e("seqException", "error in seq command: ${e.toString()}")
                         }
                     }
-//                    activity.handleAction(data)
-//                    val textArr = data.split(";")
-//                    textArr.forEach {
-//                        if (it.isEmpty()) return@forEach
-//                        Log.d("command", "received command: $it")
-//                        activity.handleAction(it.trim()) // Handles messages that are valid commands from the robot
-//                    }
-
                     activity.messageLogView?.text = activity.messageLog.getLog()
                 }
 
@@ -430,68 +399,38 @@ class MainActivity : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
-    private fun connectedState(device: BluetoothDevice) {
-        connectedDevice = device
-        val deviceName:String = if (connectedDevice.name != null) connectedDevice.name else "Unknown Device"
-        label_bluetooth_status.text = "Connected to $deviceName"
-        label_bluetooth_status.setTextColor(Color.parseColor("#388e3c"))
-
-    }
-
-    private fun disconnectedState() {
-        label_bluetooth_status.text = "Not Connected"
-        label_bluetooth_status.setTextColor(Color.parseColor("#d32f2f"))
-        label_bluetooth_connected_device.text = ""
-    }
-
-    // Handle different UI state
     private fun startModeUI() {
         sensorOrientation.disable()
-        disableElement(toggle_mode_exploration)
-        disableElement(toggle_mode_fastest_path)
-        disableElement(button_set_waypoint)
-        disableElement(button_set_origin)
-        disableElement(button_direction_left)
-        disableElement(button_direction_right)
-        disableElement(button_direction_up)
-        disableElement(switch_motion_control)
-        disableElement(button_reset_map)
-        disableElement(joystickView)
-        switch_motion_control.isChecked = false
+        disableElement(binding.toggleModeExploration)
+        disableElement(binding.toggleModeFastestPath)
+        disableElement(binding.buttonSetWaypoint)
+        disableElement(binding.buttonSetOrigin)
+        disableElement(binding.buttonDirectionLeft)
+        disableElement(binding.buttonDirectionRight)
+        disableElement(binding.buttonDirectionUp)
+        disableElement(binding.switchMotionControl)
+        disableElement(binding.buttonResetMap)
+        disableElement(binding.joystickView)
+        binding.switchMotionControl.isChecked = false
     }
 
     private fun endModeUI() {
-        enableElement(toggle_mode_exploration)
-        enableElement(toggle_mode_fastest_path)
-        enableElement(button_set_waypoint)
-        enableElement(button_set_origin)
-        enableElement(button_direction_left)
-        enableElement(button_direction_right)
-        enableElement(button_direction_up)
-        enableElement(switch_motion_control)
-        enableElement(button_reset_map)
-        enableElement(joystickView)
+        enableElement(binding.toggleModeExploration)
+        enableElement(binding.toggleModeFastestPath)
+        enableElement(binding.buttonSetWaypoint)
+        enableElement(binding.buttonSetOrigin)
+        enableElement(binding.buttonDirectionLeft)
+        enableElement(binding.buttonDirectionRight)
+        enableElement(binding.buttonDirectionUp)
+        enableElement(binding.switchMotionControl)
+        enableElement(binding.buttonResetMap)
+        enableElement(binding.joystickView)
     }
 
-    private fun disableElement(view: View?) {
-        view?.isEnabled = false
-        view?.alpha = 0.7f
-    }
-
-    private fun enableElement(view: View?) {
-        view?.isEnabled = true
-        view?.alpha = 1f
-    }
-
-    private fun updateRobotPositionLabel() {
-        label_origin_coordinateX.text = MapDrawer.Robot_X.toString()
-        label_origin_coordinateY.text = MapDrawer.getRobotInvertY().toString()
-        label_robot_direction.text = MapDrawer.direction
-    }
 
     private fun updateWaypointLabel() {
-        label_waypoint_coordinateX.text = MapDrawer.Way_Point_X.toString()
-        label_waypoint_coordinateY.text = MapDrawer.getWayPointYInvert().toString()
+        binding.labelWaypointCoordinateX.text = MapDrawer.Way_Point_X.toString()
+        binding.labelWaypointCoordinateY.text = MapDrawer.getWayPointYInvert().toString()
     }
 
     // Dialog Builders
@@ -625,8 +564,6 @@ class MainActivity : AppCompatActivity() {
 
         // Configure event listener
         dialog.findViewById<Button>(R.id.button_scan).setOnClickListener(scanDevice)
-        dialog.findViewById<Button>(R.id.button_bluetooth_server_listen)
-            .setOnClickListener(startBluetoothServer)
         listviewDevices.onItemClickListener = connectDevice
 
         isPairedDevicesOnly = false
@@ -634,17 +571,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var isPairedDevicesOnly = false
+    @SuppressLint("MissingPermission")
     private fun dialogPairedDevices() {
         // View configs
         val dialog = inflater.inflate(R.layout.dialog_devices, null)
         val dialogBuilder = AlertDialog.Builder(this).setView(dialog)
         listviewDevices = dialog.findViewById(R.id.listView_devices)
         val pairedDevices = bluetoothAdapter.bondedDevices
-        pairedDevices.forEach { addDevice(it, it.name, it.address) }
+        pairedDevices.forEach { addDevice(it) }
 
         val adapter = DeviceAdapter(applicationContext, deviceList)
         listviewDevices.adapter = adapter
-        buttonBluetoothServerListen = dialog.findViewById(R.id.button_bluetooth_server_listen)
         dialog.findViewById<TextView>(R.id.btconn_instructions).text =
             "Make sure device is nearby before using this feature. Also disconnect current connections"
         dialog.findViewById<TextView>(R.id.label_dialog_bluetooth_title).text =
@@ -655,12 +592,7 @@ class MainActivity : AppCompatActivity() {
             disableElement(listviewDevices)
             disableElement(buttonBluetoothServerListen)
         }
-
-        // Configure event listeners
-        dialog.findViewById<Button>(R.id.button_bluetooth_server_listen)
-            .setOnClickListener(startBluetoothServer)
         listviewDevices.onItemClickListener = connectDevice
-
         isPairedDevicesOnly = true
         dialogBuilder.show()
     }
@@ -696,14 +628,12 @@ class MainActivity : AppCompatActivity() {
     private val onJoystickLeft = View.OnClickListener {
         sendStringToBtConnection(commandWrap(Cmd.DIRECTION_LEFT))
         MapDrawer.moveLeft()
-        map_canvas.invalidate()
-        updateRobotPositionLabel()
+        binding.mapCanvas.invalidate()
     }
     private val onJoystickRight = View.OnClickListener {
         sendStringToBtConnection(commandWrap(Cmd.DIRECTION_RIGHT))
         MapDrawer.moveRight()
-        map_canvas.invalidate()
-        updateRobotPositionLabel()
+        binding.mapCanvas.invalidate()
     }
     private val onJoystickUp = View.OnClickListener {
         val x = MapDrawer.Robot_X
@@ -713,20 +643,19 @@ class MainActivity : AppCompatActivity() {
         if (!(x == MapDrawer.Robot_X && y == MapDrawer.Robot_Y)) sendStringToBtConnection(
             commandWrap(Cmd.DIRECTION_UP)
         )
-        map_canvas.invalidate()
-        updateRobotPositionLabel()
+        binding.mapCanvas.invalidate()
     }
     private val onStart = View.OnClickListener {
         if (startModeState) {
             startModeState = false
             MapDrawer.imgCount = 0
-            button_start_phase.text = "Start"
+            binding.buttonStartPhase.text = "Start"
 //            sendStringToBtConnection(commandWrap(Cmd.STOP))
             timer.cancel()
             endModeUI()
         } else {
             startModeState = true
-            button_start_phase.text = "Stop"
+            binding.buttonStartPhase.text = "Stop"
             if (fastestPathModeState) sendStringToBtConnection(commandWrap(Cmd.FASTEST_PATH_START))
             else {
 //                sendStringToBtConnection(commandWrap(Cmd.EXPLORATION_START))
@@ -750,81 +679,81 @@ class MainActivity : AppCompatActivity() {
     }
     private val onSetOrigin = View.OnClickListener {
         if (!MapDrawer.selectStartPoint && !MapDrawer.selectWayPoint) {
-            button_set_origin.text = "Confirm Origin"
-            disableElement(button_set_waypoint)
-            disableElement(button_direction_left)
-            disableElement(button_direction_right)
-            disableElement(button_direction_up)
+            binding.buttonSetOrigin.text = "Confirm Origin"
+            disableElement(binding.buttonSetWaypoint)
+            disableElement(binding.buttonDirectionLeft)
+            disableElement(binding.buttonDirectionRight)
+            disableElement(binding.buttonDirectionUp)
             sensorOrientation.disable()
-            switch_motion_control.isChecked = false
-            disableElement(switch_motion_control)
-            disableElement(button_start_phase)
-            disableElement(button_reset_map)
+            binding.switchMotionControl.isChecked = false
+            disableElement(binding.switchMotionControl)
+            disableElement(binding.buttonStartPhase)
+            disableElement(binding.buttonResetMap)
             MapDrawer.setSelectStartPoint()
-            map_canvas.invalidate()
+            binding.mapCanvas.invalidate()
         } else if (MapDrawer.selectStartPoint) {
-            button_set_origin.text = "Set Origin"
-            enableElement(button_set_waypoint)
-            enableElement(button_direction_left)
-            enableElement(button_direction_right)
-            enableElement(button_direction_up)
-            enableElement(switch_motion_control)
-            enableElement(button_start_phase)
-            enableElement(button_reset_map)
+            binding.buttonSetOrigin.text = "Set Origin"
+            enableElement(binding.buttonSetWaypoint)
+            enableElement(binding.buttonDirectionLeft)
+            enableElement(binding.buttonDirectionRight)
+            enableElement(binding.buttonDirectionUp)
+            enableElement(binding.switchMotionControl)
+            enableElement(binding.buttonStartPhase)
+            enableElement(binding.buttonResetMap)
             val msg =
                 ";{$FROMANDROID\"com\":\"startingPoint\",\"startingPoint\":[${MapDrawer.Start_Point_X},${MapDrawer.getStartPointYInvert()},${MapDrawer.getRotationDir()}]}"
             sendStringToBtConnection(msg)
 
             MapDrawer.setSelectStartPoint()
             MapDrawer.updateStartPoint()
-            map_canvas.invalidate()
+            binding.mapCanvas.invalidate()
         }
     }
     private val onSetWaypoint = View.OnClickListener {
         if (!MapDrawer.selectStartPoint && !MapDrawer.selectWayPoint) {
-            button_set_waypoint.text = "Confirm Waypoint"
-            disableElement(button_set_origin)
-            disableElement(button_direction_left)
-            disableElement(button_direction_right)
-            disableElement(button_direction_up)
+            binding.buttonSetWaypoint.text = "Confirm Waypoint"
+            disableElement(binding.buttonSetOrigin)
+            disableElement(binding.buttonDirectionLeft)
+            disableElement(binding.buttonDirectionRight)
+            disableElement(binding.buttonDirectionUp)
             sensorOrientation.disable()
-            switch_motion_control.isChecked = false
-            disableElement(switch_motion_control)
-            disableElement(button_start_phase)
-            disableElement(button_reset_map)
+            binding.switchMotionControl.isChecked = false
+            disableElement(binding.switchMotionControl)
+            disableElement(binding.buttonStartPhase)
+            disableElement(binding.buttonResetMap)
             MapDrawer.setSelectWayPoint()
-            map_canvas.invalidate()
+            binding.mapCanvas.invalidate()
         } else if (MapDrawer.selectWayPoint) {
-            button_set_waypoint.text = "Set Waypoint"
-            enableElement(button_set_origin)
-            enableElement(button_direction_left)
-            enableElement(button_direction_right)
-            enableElement(button_direction_up)
-            enableElement(switch_motion_control)
-            enableElement(button_start_phase)
-            enableElement(button_reset_map)
+            binding.buttonSetWaypoint.text = "Set Waypoint"
+            enableElement(binding.buttonSetOrigin)
+            enableElement(binding.buttonDirectionLeft)
+            enableElement(binding.buttonDirectionRight)
+            enableElement(binding.buttonDirectionUp)
+            enableElement(binding.switchMotionControl)
+            enableElement(binding.buttonStartPhase)
+            enableElement(binding.buttonResetMap)
             val msg =
                 ";{$FROMANDROID\"com\":\"wayPoint\",\"wayPoint\":[${MapDrawer.Way_Point_X},${MapDrawer.getWayPointYInvert()}]}"
             sendStringToBtConnection(msg)
 
             MapDrawer.setSelectWayPoint()
-            map_canvas.invalidate()
+            binding.mapCanvas.invalidate()
         }
     }
     private val onToggleMotionControl =
         CompoundButton.OnCheckedChangeListener { _: CompoundButton?, b: Boolean ->
             if (b) {
                 sensorOrientation.enable()
-                disableElement(button_direction_left)
-                disableElement(button_direction_right)
-                disableElement(button_direction_up)
-                disableElement(joystickView)
+                disableElement(binding.buttonDirectionLeft)
+                disableElement(binding.buttonDirectionRight)
+                disableElement(binding.buttonDirectionUp)
+                disableElement(binding.joystickView)
             } else {
                 sensorOrientation.disable()
-                enableElement(button_direction_left)
-                enableElement(button_direction_right)
-                enableElement(button_direction_up)
-                enableElement(joystickView)
+                enableElement(binding.buttonDirectionLeft)
+                enableElement(binding.buttonDirectionRight)
+                enableElement(binding.buttonDirectionUp)
+                enableElement(binding.joystickView)
             }
         }
 
@@ -843,9 +772,8 @@ class MainActivity : AppCompatActivity() {
 
                     if (MapDrawer.validMidpoint(x, y)) {
                         MapDrawer.updateSelection(x, y)
-                        map_canvas.invalidate()
+                        binding.mapCanvas.invalidate()
                     }
-                    updateRobotPositionLabel()
                     updateWaypointLabel()
                 }
             } catch(e: Exception){
@@ -856,13 +784,12 @@ class MainActivity : AppCompatActivity() {
         false
     }
     private val onRefreshState = View.OnClickListener {
-        map_canvas.invalidate()
-        updateRobotPositionLabel()
+        binding.mapCanvas.invalidate()
     }
     private val onChangeFastestPathMode =
         CompoundButton.OnCheckedChangeListener { _: CompoundButton?, b: Boolean ->
             fastestPathModeState = b
-            label_time_elapsed.text = "00 m 00 s"
+            binding.labelTimeElapsed.text = "00 m 00 s"
             Log.d(TAG, "Fastest Path Mode : $fastestPathModeState")
         }
     private val onChangeAutoMode =
@@ -876,16 +803,16 @@ class MainActivity : AppCompatActivity() {
             setMessage("Do you want to reset the map?")
             setNegativeButton("YES") { dialogInterface, _ ->
                 MapDrawer.resetMap()
-                image_content.setImageResource(R.drawable.img_0)
-                map_canvas.invalidate()
+                binding.imageContent.setImageResource(R.drawable.img_0)
+                binding.mapCanvas.invalidate()
                 dialogInterface.dismiss()
                 sendStringToBtConnection(commandWrap(Cmd.CLEAR)) // Send Clear
                 try{
-                    val childCount = map_overlay_for_obstacles.childCount;
+                    val childCount = binding.mapOverlayForObstacles.childCount;
                     for (i in 1..childCount) {
-                        val v = map_overlay_for_obstacles.getChildAt(i)
+                        val v = binding.mapOverlayForObstacles.getChildAt(i)
                         if(v!=null)
-                            map_overlay_for_obstacles.removeView(v)
+                            binding.mapOverlayForObstacles.removeView(v)
                     }
                 } catch(e:Exception){
                     Log.e("map reset",  e.toString())
@@ -915,6 +842,8 @@ class MainActivity : AppCompatActivity() {
         sendStringToBtConnection(data)
         textboxSendMessage?.setText("")
     }
+
+    @SuppressLint("MissingPermission")
     private val scanDevice = View.OnClickListener {
         if (buttonScan?.text == "Scan Devices") {
             disableElement(buttonBluetoothServerListen)
@@ -929,6 +858,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private val connectDevice = AdapterView.OnItemClickListener { _, _, i, _ ->
         val item = deviceList[i]
         val device = item.device
@@ -938,30 +868,12 @@ class MainActivity : AppCompatActivity() {
 
         connectedDevice = device
         connectBluetoothDevice()
-        isServer = false
-    }
-    private val startBluetoothServer = View.OnClickListener {
-        if (buttonBluetoothServerListen?.text == "Stop Bluetooth Server") {
-            buttonBluetoothServerListen?.text = "Start Bluetooth Server"
-            enableElement(listviewDevices)
-            enableElement(buttonScan)
-        } else if (buttonBluetoothServerListen?.text == "Start Bluetooth Server") {
-            buttonBluetoothServerListen?.text = "Stop Bluetooth Server"
-            disableElement(listviewDevices)
-            disableElement(buttonScan)
-
-            connectionThread = BluetoothService(streamHandler)
-            connectionThread?.startServer(bluetoothAdapter)
-            isServer = true
-        }
     }
 
 
     private fun disconnectBluetoothDevice() {
         connectionThread?.cancel()
         connectionThread = null
-        disconnectedState()
-        disconnectState = true
     }
 
     private fun connectBluetoothDevice() {
@@ -1057,8 +969,7 @@ class MainActivity : AppCompatActivity() {
             MapDrawer.moveUp()
             sendStringToBtConnection(commandWrap(Cmd.DIRECTION_UP))
         } else return
-        updateRobotPositionLabel()
-        map_canvas.invalidate()
+        binding.mapCanvas.invalidate()
         currentTime = System.currentTimeMillis()
     }
 
@@ -1076,7 +987,7 @@ class MainActivity : AppCompatActivity() {
 
         if(parser.setImage()){
             MapDrawer.updateObstacleDirection(parser.lastImageID, parser.lastImageX!!, parser.lastImageY!!)
-            map_canvas.invalidate()
+            binding.mapCanvas.invalidate()
         }
 
 //        handleUpdateImage(parser.lastImageID)
@@ -1084,7 +995,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUpdateImage(imgID: String) {
-        image_content.setImageResource(
+        binding.imageContent.setImageResource(
             when (imgID) {
                 "11" -> R.drawable.image_11
                 "12" -> R.drawable.image_12
@@ -1133,7 +1044,7 @@ class MainActivity : AppCompatActivity() {
         try {
             MapDrawer.updateCoordinates(x_axis, y_axis, dir)
 
-            if (autoModeState) map_canvas.invalidate()
+            if (autoModeState) binding.mapCanvas.invalidate()
         } catch (typeEx: ClassCastException) {
             Log.d(TAG, "Unable to cast data into int")
         }
@@ -1145,7 +1056,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun handleUpdateStatus(data: String) {
         Log.d(TAG, "Status Update : $data")
-        label_status_details.text = data
+        binding.labelStatusDetails.text = data
     }
 
 
@@ -1219,35 +1130,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderObstacleOverlay(context:Context){
-        for (i in map_overlay_for_obstacles.childCount - 1 downTo 0) {
-            val childView = map_overlay_for_obstacles.getChildAt(i)
-            if (childView != map_canvas) {
-                map_overlay_for_obstacles.removeViewAt(i)
-            }
-        }
-        val map = ImageRecognition.obstaclesMap
-        for (key in map.keys) {
-            val obstacle = map.get(key)
-            val x = key.first
-            val y = key.second
-            val face = obstacle!!.face
-            val imgId = obstacle!!.imgId
-            val obstacleView = ObstacleView(context)
-            if(face != null){
-                obstacleView.setImageFace(face)
-            }
-            if(imgId != null){
-                obstacleView.setImage(imgId)
-            }
-
-            val params: RelativeLayout.LayoutParams = RelativeLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            params.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE)
-            params.leftMargin = x * MapDrawer.gridDimensions
-            params.topMargin = y * MapDrawer.gridDimensions
-            map_overlay_for_obstacles.addView(obstacleView, params)
-        }
+//        for (i in binding.mapOverlayForObstacles.childCount - 1 downTo 0) {
+//            val childView = binding.mapOverlayForObstacles.getChildAt(i)
+//            if (childView != binding.mapCanvas) {
+//                binding.mapOverlayForObstacles.removeViewAt(i)
+//            }
+//        }
+//        val map = ImageRecognition.obstaclesMap
+//        for (key in map.keys) {
+//            val obstacle = map.get(key)
+//            val x = key.first
+//            val y = key.second
+//            val face = obstacle!!.face
+//            val imgId = obstacle!!.imgId
+//            val obstacleView = ObstacleView(context)
+//            if(face != null){
+//                obstacleView.setImageFace(face)
+//            }
+//            if(imgId != null){
+//                obstacleView.setImage(imgId)
+//            }
+//
+//            val params: RelativeLayout.LayoutParams = RelativeLayout.LayoutParams(
+//                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+//            )
+//            params.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE)
+//            params.leftMargin = x * MapDrawer.gridDimensions
+//            params.topMargin = y * MapDrawer.gridDimensions
+//            binding.mapOverlayForObstacles.addView(obstacleView, params)
+//        }
     }
 
     private val onMove = JoystickView.OnMoveListener { angle, _ ->
@@ -1261,18 +1172,15 @@ class MainActivity : AppCompatActivity() {
                     Cmd.DIRECTION_UP
                 )
             )
-            map_canvas.invalidate()
-            updateRobotPositionLabel()
+            binding.mapCanvas.invalidate()
         } else if ((angle in 1..45) || (angle in 316..359)) {
             sendStringToBtConnection(commandWrap(Cmd.DIRECTION_RIGHT))
             MapDrawer.moveRight()
-            map_canvas.invalidate()
-            updateRobotPositionLabel()
+            binding.mapCanvas.invalidate()
         } else if (angle in 135..254) {
             sendStringToBtConnection(commandWrap(Cmd.DIRECTION_LEFT))
             MapDrawer.moveLeft()
-            map_canvas.invalidate()
-            updateRobotPositionLabel()
+            binding.mapCanvas.invalidate()
         }
     }
 
@@ -1284,7 +1192,7 @@ class MainActivity : AppCompatActivity() {
 //        Log.d("mapDimension", "widthPixels:${metrics.widthPixels}")
         MapDrawer.gridDimensions = (500) / 20
         Log.d("mapDimension", "gridDimension set to ${MapDrawer.gridDimensions}")
-        map_canvas.invalidate()
+        binding.mapCanvas.invalidate()
     }
 
     companion object {

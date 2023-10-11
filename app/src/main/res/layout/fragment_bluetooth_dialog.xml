@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layout xmlns:android="http://schemas.android.com/apk/res/android">
-    <data>
-        <variable
-            name="mainViewModel"
-            type="sg.edu.ntu.scse.mdp.g39.mdpkotlin.MainViewModel" />
-    </data>
 <LinearLayout
-    android:orientation="vertical" android:layout_width="match_parent"
-    android:layout_height="wrap_content" xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content" >
     <TextView
         android:id="@+id/label_dialog_bluetooth_title"
         android:layout_width="match_parent"
@@ -74,4 +71,3 @@
             android:alpha="@{mainViewModel.uiState.isConnected ? 1f : 0.5f}"/>
     </LinearLayout>
 </LinearLayout>
-</layout>

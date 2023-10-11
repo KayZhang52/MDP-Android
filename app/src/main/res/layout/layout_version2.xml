@@ -1,10 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<layout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
     tools:context="sg.edu.ntu.scse.mdp.g39.mdpkotlin.MainActivity">
+    <data>
+        <variable
+            name="imgIdLatestRecognition"
+            type="String" />
+        <variable
+            name="viewModel"
+            type="sg.edu.ntu.scse.mdp.g39.mdpkotlin.MainViewModel" />
+    </data>
+    <androidx.fragment.app.FragmentContainerView
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/fragment_container_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:name="sg.edu.ntu.scse.mdp.g39.mdpkotlin.Fragments.BluetoothDialogFragment" />
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -24,7 +40,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:visibility="gone">
-
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -66,7 +81,7 @@
                             android:layout_height="20dp"
                             android:background="@drawable/listview_border"
                             android:gravity="center"
-                            android:text="@string/rp_placeholder" />
+                            android:text="@{viewModel.uiState.robotXCoordinate}" />
 
                         <TextView
                             android:layout_width="20dp"
@@ -83,7 +98,7 @@
                             android:layout_height="20dp"
                             android:background="@drawable/listview_border"
                             android:gravity="center"
-                            android:text="@string/rp_placeholder" />
+                            android:text="@{viewModel.uiState.robotYCoordinate}"/>
 
                     </LinearLayout>
                     <LinearLayout
@@ -106,7 +121,7 @@
                             android:layout_height="20dp"
                             android:background="@drawable/listview_border"
                             android:gravity="center"
-                            android:text="N" />
+                            android:text="@{viewModel.uiState.robotDirection}" />
                     </LinearLayout>
 
 
@@ -173,11 +188,20 @@
                 android:layout_width="500px"
                 android:layout_height="500px"
                 android:background="@drawable/border_map">
+
                 <sg.edu.ntu.scse.mdp.g39.mdpkotlin.util.MapDrawer
                     android:id="@+id/map_canvas"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:tag="tablet" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_view"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="0dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"/>
             </RelativeLayout>
 
 
@@ -352,8 +376,8 @@
                                 android:id="@+id/label_bluetooth_status"
                                 android:layout_width="150dp"
                                 android:layout_height="wrap_content"
-                                android:text="@string/not_connected"
-                                android:textColor="@color/colorLabelNotConnected" />
+                                android:text="@{viewModel.uiState.connectionStatus}"
+                                android:textColor="@{viewModel.uiState.connectionStatusTextColor}"/>
                         </LinearLayout>
                         <LinearLayout
                             android:layout_width="match_parent"
@@ -535,7 +559,7 @@
                                 android:layout_height="100dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="@string/recognized_image"
-                                android:src="@drawable/img_0">
+                                android:src='@{imgIdLatestRecognition}'>
 
                             </ImageView>
 
@@ -597,7 +621,7 @@
                                         android:src="@drawable/ic_arrow_left" />
 
                                     <io.github.controlwear.virtual.joystick.android.JoystickView xmlns:custom="http://schemas.android.com/apk/res-auto"
-                                        android:id="@+id/joystickView"
+                                        android:id="@+id/joystick_view"
                                         android:layout_width="50dp"
                                         android:layout_height="50dp"
                                         android:layout_alignParentStart="true"
@@ -720,3 +744,4 @@
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>
