@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="wrap_content" xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:gravity="center"
+        android:text="@string/obstacle_configuration"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/colorLabelDialogTitle"
+        android:background="@color/colorAppTheme"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
+        android:paddingBottom="5dp"
+        android:orientation="vertical">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:layout_marginTop="15dp"
+            android:text="Coordinates (Origin = Bottom Left)"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_gravity="center">
+
+            <TextView
+                android:id="@+id/textView3"
+                android:layout_width="62dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="X: "
+                app:layout_constraintStart_toStartOf="parent" />
+
+            <Spinner
+                android:id="@+id/spinner_x_coordinate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@android:drawable/btn_dropdown"
+                app:layout_constraintStart_toEndOf="@+id/textView3"
+                android:spinnerMode="dropdown"/>
+
+            <TextView
+                android:id="@+id/textView4"
+                android:layout_width="62dp"
+                android:layout_height="match_parent"
+                android:text="Y: "
+                app:layout_constraintStart_toEndOf="@+id/spinner_x_coordinate"
+                tools:layout_editor_absoluteY="0dp"
+                android:gravity="center"/>
+
+            <Spinner
+                android:id="@+id/spinner_y_coordinate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@android:drawable/btn_dropdown"
+                app:layout_constraintStart_toEndOf="@+id/textView4"
+                android:spinnerMode="dropdown"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:layout_marginTop="15dp"
+            android:text="Obstacle Image"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <Spinner
+            android:id="@+id/spinner_image"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:drawable/btn_dropdown"
+            android:spinnerMode="dropdown"
+            />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:layout_marginTop="15dp"
+            android:text="Image Facing Direction"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+
+
+        <Spinner
+            android:id="@+id/spinner_image_direction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:drawable/btn_dropdown"
+            android:spinnerMode="dropdown"/>
+
+        <Button
+            android:id="@+id/button_add_obstacle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:background="@color/colorAppTheme"
+            android:textColor="@color/colorButtonTextTheme"
+            android:text="Add" />
+    </LinearLayout>
+</LinearLayout>

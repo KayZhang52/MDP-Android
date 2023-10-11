@@ -28,7 +28,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.github.controlwear.virtual.joystick.android.JoystickView
-import kotlinx.android.synthetic.main.layout_version2.*
+import kotlinx.android.synthetic.main.layout_activity_main.button_direction_left
+import kotlinx.android.synthetic.main.layout_activity_main.*
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Device
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.MessageLog
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.ObstacleView
@@ -169,6 +170,7 @@ class MainActivity : AppCompatActivity() {
         messageLogView = message_log
         textboxSendMessage = textbox_send_message
         button_send_message.setOnClickListener(sendMessage)
+        button_add_obstacle.setOnClickListener(showDialogAddObstacle)
 
         try{
             adjustMapDimensions()
@@ -214,12 +216,8 @@ class MainActivity : AppCompatActivity() {
                     BluetoothDevice.ACTION_FOUND -> {
                         Log.d("bluetooth", "Found")
                         device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                        Log.d(
-                            TAG,
-                            if (device != null && device.name != null) device.name else "No device name"
-                        )
                         if(device != null){
-                            addDevice(device, device.name, device.address)
+                            addDevice(device, device.name?:"Unknown", device.address)
                         }
 
                     }
@@ -255,11 +253,11 @@ class MainActivity : AppCompatActivity() {
                             if (!disconnectState) {
                                 if (isServer) {
                                     Log.d(TAG, "Starting Server")
-                                    connectionThread = BluetoothService(streamHandler)
+                                    connectionThread = BluetoothService(streamHandler, applicationContext)
                                     connectionThread?.startServer(bluetoothAdapter)
                                 } else {
                                     Log.d(TAG, "Starting Client")
-                                    connectionThread = BluetoothService(streamHandler)
+                                    connectionThread = BluetoothService(streamHandler, applicationContext)
                                     connectionThread?.connectDevice(connectedDevice)
                                 }
                             } else connectionThread = null
@@ -474,6 +472,7 @@ class MainActivity : AppCompatActivity() {
         disableElement(button_reset_map)
         disableElement(joystickView)
         switch_motion_control.isChecked = false
+        disableElement(button_add_obstacle)
     }
 
     private fun endModeUI() {
@@ -487,6 +486,7 @@ class MainActivity : AppCompatActivity() {
         enableElement(switch_motion_control)
         enableElement(button_reset_map)
         enableElement(joystickView)
+        enableElement(button_add_obstacle)
     }
 
     private fun disableElement(view: View?) {
@@ -692,7 +692,8 @@ class MainActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items)
         dropdown.adapter = adapter
         val dropdown2 = dialogView.findViewById<Spinner>(R.id.spinner_image)
-        val items2 = arrayOf("1", "2", "3", "4", "5", "6", "7", "8")
+        dropdown2.isEnabled = false
+        val items2 = arrayOf("-1", "1", "2", "3", "4", "5", "6", "7", "8")
         val adapter2 = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items2)
         dropdown2.adapter = adapter2
 
@@ -701,6 +702,42 @@ class MainActivity : AppCompatActivity() {
             val face = dropdown.selectedItem.toString().first()
             val image = dropdown2.selectedItem.toString().toInt()
             ImageRecognition.updateObstacle(x,y,face,image)
+            dialog.dismiss()
+            renderObstacleOverlay(this.applicationContext)
+        })
+        dialog.show()
+        Log.d("obstacle", "end")
+    }
+
+    private val showDialogAddObstacle = View.OnClickListener {
+        val dialogView = inflater.inflate(R.layout.dialog_add_obstacle, null)
+        val dialogBuilder = AlertDialog.Builder(this).setView(dialogView)
+
+        val coordinates = arrayOf("0","1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"
+            , "13", "14", "15", "16", "17", "18", "19")
+        val dropdownX = dialogView.findViewById<Spinner>(R.id.spinner_x_coordinate)
+        dropdownX.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, coordinates)
+        val dropdownY = dialogView.findViewById<Spinner>(R.id.spinner_y_coordinate)
+        dropdownY.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, coordinates)
+
+        // setting obstacle dialog drop down options
+        val dropdown = dialogView.findViewById<Spinner>(R.id.spinner_image_direction)
+        val items = arrayOf("N", "S", "E", "W")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items)
+        dropdown.adapter = adapter
+        val dropdown2 = dialogView.findViewById<Spinner>(R.id.spinner_image)
+        dropdown2.isEnabled = false
+        val items2 = arrayOf("-1","1", "2", "3", "4", "5", "6", "7", "8")
+        val adapter2 = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items2)
+        dropdown2.adapter = adapter2
+
+        val dialog:AlertDialog = dialogBuilder.create()
+        dialogView.findViewById<Button>(R.id.button_add_obstacle).setOnClickListener(View.OnClickListener{
+            val x:Int = 19 - dropdownX.selectedItem.toString().toInt()
+            val y:Int = 19 - dropdownY.selectedItem.toString().toInt()
+            val face:Char = dropdown.selectedItem.toString().first()
+            val image:Int = dropdown2.selectedItem.toString().toInt()
+            ImageRecognition.addObstacle(x,y,face,image)
             dialog.dismiss()
             renderObstacleOverlay(this.applicationContext)
         })
@@ -737,18 +774,14 @@ class MainActivity : AppCompatActivity() {
             startModeState = false
             MapDrawer.imgCount = 0
             button_start_phase.text = "Start"
-//            sendStringToBtConnection(commandWrap(Cmd.STOP))
             timer.cancel()
+            timer_text.text="00 m 00 s"
             endModeUI()
         } else {
             startModeState = true
             button_start_phase.text = "Stop"
-            if (fastestPathModeState) sendStringToBtConnection(commandWrap(Cmd.FASTEST_PATH_START))
-            else {
-//                sendStringToBtConnection(commandWrap(Cmd.EXPLORATION_START))
-                val msg = MapDrawer.getObstaclePositions()
-                sendStringToBtConnection(msg)
-            }
+            val msg = MapDrawer.getObstaclePositions()
+            sendStringToBtConnection(msg)
 
             timer = object : CountDownTimer(30000000, 1000) {
                 override fun onTick(l: Long) {
@@ -757,7 +790,7 @@ class MainActivity : AppCompatActivity() {
                     val minutes = seconds / 60
                     seconds %= 60
                     val timeFormatter = DecimalFormat("00")
-                    MapDrawer.timeElapsed="${timeFormatter.format(minutes)} m ${timeFormatter.format(seconds)} s"
+                    timer_text.text="${timeFormatter.format(minutes)} m ${timeFormatter.format(seconds)} s"
                 }
                 override fun onFinish() {}
             }.start()
@@ -956,12 +989,18 @@ class MainActivity : AppCompatActivity() {
             buttonBluetoothServerListen?.text = "Start Bluetooth Server"
             enableElement(listviewDevices)
             enableElement(buttonScan)
+            connectionThread?.cancel()
         } else if (buttonBluetoothServerListen?.text == "Start Bluetooth Server") {
+            val requestCode = 1;
+            val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+            }
+            startActivityForResult(discoverableIntent, requestCode)
             buttonBluetoothServerListen?.text = "Stop Bluetooth Server"
             disableElement(listviewDevices)
             disableElement(buttonScan)
 
-            connectionThread = BluetoothService(streamHandler)
+            connectionThread = BluetoothService(streamHandler, applicationContext)
             connectionThread?.startServer(bluetoothAdapter)
             isServer = true
         }
@@ -976,7 +1015,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectBluetoothDevice() {
-        connectionThread = BluetoothService(streamHandler)
+        connectionThread = BluetoothService(streamHandler, applicationContext)
         connectionThread?.connectDevice(connectedDevice)
     }
 
@@ -1102,6 +1141,10 @@ class MainActivity : AppCompatActivity() {
                 "13" -> R.drawable.image_13
                 "14" -> R.drawable.image_14
                 "15" -> R.drawable.image_15
+                "16" -> R.drawable.image_16
+                "17" -> R.drawable.image_17
+                "18" -> R.drawable.image_18
+                "19" -> R.drawable.image_19
                 "20" -> R.drawable.image_20
                 "21" -> R.drawable.image_21
                 "22" -> R.drawable.image_22
@@ -1114,22 +1157,16 @@ class MainActivity : AppCompatActivity() {
                 "29" -> R.drawable.image_29
                 "30" -> R.drawable.image_30
                 "31" -> R.drawable.image_31
-
+                "32" -> R.drawable.image_32
+                "33" -> R.drawable.image_33
+                "34" -> R.drawable.image_34
+                "35" -> R.drawable.image_35
                 "36" -> R.drawable.image_36
                 "37" -> R.drawable.image_37
                 "38" -> R.drawable.image_38
                 "39" -> R.drawable.image_39
+                "40" -> R.drawable.image_40
 
-//                "6" -> R.drawable.image_16
-//                "7" -> R.drawable.image_17
-//                "8" -> R.drawable.image_18
-//                "9" -> R.drawable.image_19
-//                "10" -> R.drawable.image_15
-//                "11" -> R.drawable.image_20
-//                "12" -> R.drawable.image_21
-//                "13" -> R.drawable.image_22
-//                "14" -> R.drawable.image23
-//                "15" -> R.drawable.image_24
 
                 else -> R.drawable.img_0
             }
@@ -1211,7 +1248,7 @@ class MainActivity : AppCompatActivity() {
             DragEvent.ACTION_DRAG_LOCATION ->{
                 val x = (dragEvent.x / MapDrawer.gridDimensions).toInt()
                 val y = (dragEvent.y / MapDrawer.gridDimensions).toInt()
-                draggable_obstacle_coordinate_text.text = "($x, $y) which is (${x}, ${19-y}) if origin bottom-left"
+                draggable_obstacle_coordinate_text.text = "($x, $y) || (${x}, ${19-y}) "
             }
 
 

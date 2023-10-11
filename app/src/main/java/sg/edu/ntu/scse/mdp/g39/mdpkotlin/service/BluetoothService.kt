@@ -1,19 +1,23 @@
 package sg.edu.ntu.scse.mdp.g39.mdpkotlin.service
 
+import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
+import androidx.core.app.ActivityCompat
 import sg.edu.ntu.scse.mdp.g39.mdpkotlin.entity.Protocol
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
 
-class BluetoothService(private val BTHandler: Handler) {
+class BluetoothService(private val BTHandler: Handler, private val context: Context) {
 
     private var connection: BluetoothConnection? = null
     private var server: BluetoothServer? = null
@@ -91,29 +95,38 @@ class BluetoothService(private val BTHandler: Handler) {
      * Device will act as the Bluetooth Server
      */
     private inner class BluetoothServer(bluetoothAdapter: BluetoothAdapter) : Thread() {
-        private var objServerSocket: BluetoothServerSocket?
-        private var objSocket: BluetoothSocket? = null
+        private var serverSocket: BluetoothServerSocket? = null
+        private var socket: BluetoothSocket? = null
 
         init {
             try {
-                this.objServerSocket = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(
+                if (ActivityCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.BLUETOOTH_CONNECT
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    Log.e(TAG,"ISSUE")
+                }
+                serverSocket = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(
                     device_name, device_uuid
                 )
             } catch (socketEx: IOException) {
-                Log.d(TAG, "Failed to listen to socket")
-                this.objServerSocket = null
+                Log.e(TAG, "Failed to listen to socket due to IO Exception")
+                this.serverSocket = null
+            } catch (e:Exception) {
+                Log.e(TAG,"Faild to listen to socket due to: ${e.toString()}")
             }
         }
 
         override fun run() {
             while (true) {
                 try {
-                    this.objSocket = this.objServerSocket?.accept()
+                    this.socket = this.serverSocket?.accept()
                     var chk = false
 
-                    this.objSocket?.let {
+                    this.socket?.let {
                         startStream(it)
-                        this.objServerSocket?.close()
+                        this.serverSocket?.close()
                         chk = true
                     }
                     if (chk) break
@@ -123,7 +136,7 @@ class BluetoothService(private val BTHandler: Handler) {
             }
         }
 
-        fun cancel() { try { this.objSocket?.close() } catch (closeEx: IOException) { Log.d(TAG, "Failed to close socket") } }
+        fun cancel() { try { this.socket?.close() } catch (closeEx: IOException) { Log.d(TAG, "Failed to close socket") } }
     }
 
     /**

@@ -159,9 +159,9 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
             drawExploredMap(canvas)
 //            drawStartPoint(canvas)
 //            drawEndPoint(canvas)
-            drawWayPoint(canvas)
-            drawRobot(canvas)
-            drawStatusText(canvas)
+//            drawWayPoint(canvas)
+//            drawRobot(canvas)
+//            drawStatusText(canvas)
         } else {
             drawStartPoint(canvas)
             drawEndPoint(canvas)
@@ -589,13 +589,9 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
 
         fun getObstaclePositions():String{
             var msg =  "ALG|:"
-            for(i in 0..Map.COLUMN-1){
-                for(j in 0..Map.ROW-1){
-                    if(exploredPath[j][i].equals("2")){
-                        msg += "$j,$i,${ImageRecognition.obstaclesMap.get(Pair(j,i))!!.face}"
-                        msg += ":"
-                    }
-                }
+            for((key,obs) in ImageRecognition.obstaclesMap){
+                msg += "${key.first},${key.second},${obs.face}"
+                msg += ":"
             }
             return msg
         }

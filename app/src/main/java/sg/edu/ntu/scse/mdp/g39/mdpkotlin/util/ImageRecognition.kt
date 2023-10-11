@@ -11,15 +11,16 @@ class ImageRecognition(context: Context, attrs: AttributeSet? = null): View(cont
         var obstaclesMap = HashMap<Pair<Int, Int>, Obstacle>()
         var currentIdx = 0
         var coordinatesInSequence:MutableList<Pair<Int,Int>> = mutableListOf()
-        fun addObstacle(x:Int, y:Int, face:Char, imgId:Int){
+        fun addObstacle(x:Int, y:Int, face:Char?, imgId:Int?){
             obstaclesMap.put(Pair(x,y),Obstacle(face,imgId))
         }
         fun removeObstacle(x:Int, y:Int){
             obstaclesMap.remove(Pair(x,y))
         }
         fun addObstacle(x:Int, y:Int){
-            obstaclesMap.put(Pair(x,y), Obstacle(null, null))
+            addObstacle(x,y,null, null)
         }
+
         fun updateObstacle(x:Int, y:Int, face:Char, imgId:Int){
             val key = Pair(x,y)
             if(obstaclesMap.containsKey(key)){
