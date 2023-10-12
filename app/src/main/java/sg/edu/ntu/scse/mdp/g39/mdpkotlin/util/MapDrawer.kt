@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Rect
 import android.util.AttributeSet
 import android.util.Log
@@ -44,6 +45,7 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
     private lateinit var sidePanelPaint: Paint
 
     private lateinit var blackTextPaint: Paint
+    private lateinit var redPathPaint: Paint
 
     init {
         Robot_X = Robot.START_POS_X
@@ -76,6 +78,7 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
         obstacleTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         sidePanelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         blackTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        redPathPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         gridPaint.style = Paint.Style.FILL
         gridPaint.color = Color.parseColor("#87cefa")
@@ -138,6 +141,10 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
         blackTextPaint.color = Color.parseColor("#000000")
         blackTextPaint.textSize = 15f
 
+        redPathPaint.style = Paint.Style.STROKE
+        redPathPaint.color = Color.parseColor("#FF0000")
+        redPathPaint.textSize = 20f
+
 
         if (this.tag != null) {
             Log.d("Tag", if (this.tag != null) this.tag as String else "Default")
@@ -157,6 +164,7 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
         drawMap(canvas)
         if (!selectWayPoint && !selectStartPoint) {
             drawExploredMap(canvas)
+            drawSequence(canvas)
 //            drawStartPoint(canvas)
 //            drawEndPoint(canvas)
 //            drawWayPoint(canvas)
@@ -185,6 +193,7 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
             }
         }
     }
+
 
     private fun drawExploredMap(canvas: Canvas) {
         for (i in 0 until Map.COLUMN) {
@@ -215,6 +224,40 @@ class MapDrawer(context: Context, attrs: AttributeSet? = null): View(context, at
             "Down" -> canvas.drawLine(gridX, gridY, gridX, ((Robot_Y + 2f) * gridDimensions), directionPaint)
         }
     }
+
+    private fun drawArrow(canvas:Canvas, gridX:Int, gridY:Int, destGridX:Int, dstGridY:Int){
+
+        val x0 = gridX*gridDimensions.toFloat() + gridDimensions*0.5f
+        val y0 = gridY*gridDimensions.toFloat()+ gridDimensions*0.5f
+        val x1 = destGridX*gridDimensions.toFloat()+ gridDimensions*0.5f
+        val y1 = dstGridY*gridDimensions.toFloat()+ gridDimensions*0.5f
+
+        canvas.drawLine(x0, y0, x1, y1, redPathPaint)
+//
+//        val deltaX = x1 - x0
+//        val deltaY = y1 - y0
+//        val frac = 0.03.toFloat()
+//        val point_x_1 = (x0+x1)/2 + -((1 - frac) * deltaX + frac * deltaY)
+//        val point_y_1 = (y0+y1)/2 + -((1 - frac) * deltaY - frac * deltaX)
+//        val point_x_3 = (x0+x1)/2 + -((1 - frac) * deltaX - frac * deltaY)
+//        val point_y_3 = (y0+y1)/2 + -((1 - frac) * deltaY + frac * deltaX)
+//        val path = Path()
+//        path.fillType = Path.FillType.EVEN_ODD
+//        path.moveTo(point_x_1, point_y_1)
+//        path.lineTo(x1, y1)
+//        path.lineTo(point_x_3, point_y_3)
+//        path.lineTo(point_x_1, point_y_1)
+//        path.close()
+//        canvas.drawPath(path, redPathPaint)
+    }
+
+    private fun drawSequence(canvas:Canvas){
+        val seq = ImageRecognition.coordinatesInSequence
+        for(i in 1..seq.size-1){
+            drawArrow(canvas, seq[i-1].first, seq[i-1].second, seq[i].first, seq[i].second)
+        }
+    }
+
 
     private fun drawStartPoint(canvas: Canvas) {
         var left = Start_Point_X * gridDimensions

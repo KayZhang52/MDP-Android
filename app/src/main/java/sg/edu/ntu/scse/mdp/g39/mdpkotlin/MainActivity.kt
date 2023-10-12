@@ -342,20 +342,21 @@ class MainActivity : AppCompatActivity() {
                     // received string format "seq:1,1:2,2,3,3:"
                     if(data.substring(0, minOf(3, data.length)) == "seq"){
                         try{
-                        var arrOfStr = data.substring(4,data.length).split(":")
-                        var coordinates:MutableList<Pair<Int,Int>> = mutableListOf()
-                        arrOfStr.forEach{
-                            if(it.length >= 3) {
-                                val arr = it.split(",")
-                                val x = arr[0].toInt()
-                                val y = arr[1].toInt()
-                                coordinates.add(Pair(x,y))
+                            var arrOfStr = data.substring(4,data.length).split(":")
+                            var coordinates:MutableList<Pair<Int,Int>> = mutableListOf()
+                            arrOfStr.forEach{
+                                if(it.length >= 3) {
+                                    val arr = it.split(",")
+                                    val x = arr[0].toInt()
+                                    val y = arr[1].toInt()
+                                    coordinates.add(Pair(x,y))
+                                }
                             }
-                        }
-                        ImageRecognition.coordinatesInSequence = coordinates
+                            ImageRecognition.coordinatesInSequence = coordinates
                             ImageRecognition.currentIdx = 0
-                        Log.d("imageSequence",  "received seq: ${arrOfStr.joinToString("|")}")
-                        Toast.makeText(activity, "Setting obstacle sequence...", Toast.LENGTH_SHORT).show()}
+                            activity.map_canvas.invalidate()
+                            Log.d("imageSequence",  "received seq: ${arrOfStr.joinToString("|")}")
+                            Toast.makeText(activity, "Setting obstacle sequence...", Toast.LENGTH_SHORT).show()}
                         catch(e:Exception){
                             Log.e("seqException", "error in seq command: ${e.toString()}")
                         }
@@ -733,7 +734,7 @@ class MainActivity : AppCompatActivity() {
 
         val dialog:AlertDialog = dialogBuilder.create()
         dialogView.findViewById<Button>(R.id.button_add_obstacle).setOnClickListener(View.OnClickListener{
-            val x:Int = 19 - dropdownX.selectedItem.toString().toInt()
+            val x:Int = dropdownX.selectedItem.toString().toInt()
             val y:Int = 19 - dropdownY.selectedItem.toString().toInt()
             val face:Char = dropdown.selectedItem.toString().first()
             val image:Int = dropdown2.selectedItem.toString().toInt()
@@ -965,13 +966,16 @@ class MainActivity : AppCompatActivity() {
                 )
             }
             val i = bluetoothAdapter.startDiscovery()
-            Log.d("bluetooth", "startdiscovery = "+i.toString())
+
+            Log.d("bluetooth", "startdiscovery = $i")
         } else if (buttonScan?.text == "Stop Scan") {
             enableElement(buttonBluetoothServerListen)
             buttonScan?.text = "Scan Devices"
             bluetoothAdapter.cancelDiscovery()
         }
     }
+
+
 
     private val connectDevice = AdapterView.OnItemClickListener { _, _, i, _ ->
         val item = deviceList[i]
@@ -1256,7 +1260,7 @@ class MainActivity : AppCompatActivity() {
             // should only happens when user drag the obstacle into the map
             DragEvent.ACTION_DROP -> {
                 isDragging = false
-//                draggable_obstacle_coordinate_text.text = ""
+                draggable_obstacle_coordinate_text.text = ""
                 try {
                     val x = (dragEvent.x / MapDrawer.gridDimensions).toInt()
                     val y = (dragEvent.y / MapDrawer.gridDimensions).toInt()
@@ -1348,8 +1352,6 @@ class MainActivity : AppCompatActivity() {
         val metrics: DisplayMetrics = DisplayMetrics()
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         val height = metrics.heightPixels
-//        Log.d("mapDimension", "heightPixels:${metrics.heightPixels}")
-//        Log.d("mapDimension", "widthPixels:${metrics.widthPixels}")
         MapDrawer.gridDimensions = (500) / 20
         Log.d("mapDimension", "gridDimension set to ${MapDrawer.gridDimensions}")
         map_canvas.invalidate()
